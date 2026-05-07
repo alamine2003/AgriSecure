@@ -1,0 +1,116 @@
+##@ Monitoring (Prometheus + Grafana + Loki)
+
+start-monitoring: ## Démarrer la stack de monitoring
+	@echo "$(GREEN)🔍 Démarrage stack monitoring...$(NC)"
+	@echo ""
+	@echo "$(CYAN)Services à démarrer:$(NC)"
+	@echo "   - Prometheus (métriques)"
+	@echo "   - Grafana (visualisation)"
+	@echo "   - Loki (logs)"
+	@echo "   - Promtail (collecte logs)"
+	@echo "   - cAdvisor (métriques containers)"
+	@echo "   - Node Exporter (métriques système)"
+	@echo ""
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d prometheus grafana loki promtail cadvisor node-exporter
+	@echo "$(YELLOW)⏳ Attente démarrage (15s)...$(NC)"
+	@timeout /t 15 /nobreak >nul || sleep 15
+	@echo ""
+	@echo "$(GREEN)✅ Stack monitoring démarrée !$(NC)"
+	@echo ""
+	@echo "$(CYAN)📍 Accès aux services:$(NC)"
+	@echo "   Grafana:     http://localhost:3001 (admin / admin123)"
+	@echo "   Prometheus:  http://localhost:9090"
+	@echo "   Loki:        http://localhost:3100"
+	@echo "   cAdvisor:    http://localhost:8081"
+	@echo ""
+	@$(MAKE) status-monitoring
+
+stop-monitoring: ## Arrêter la stack de monitoring
+	@echo "$(RED)🛑 Arrêt stack monitoring...$(NC)"
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml stop prometheus grafana loki promtail cadvisor node-exporter
+	@echo "$(GREEN)✅ Stack monitoring arrêtée$(NC)"
+
+restart-monitoring: ## Redémarrer la stack de monitoring
+	@echo "$(YELLOW)🔄 Redémarrage stack monitoring...$(NC)"
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml restart prometheus grafana loki promtail cadvisor node-exporter
+	@echo "$(GREEN)✅ Stack monitoring redémarrée$(NC)"
+
+status-monitoring: ## Afficher l'état du monitoring
+	@echo "$(CYAN)📊 État stack monitoring:$(NC)"
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml ps prometheus grafana loki promtail cadvisor node-exporter
+
+logs-monitoring: ## Logs du monitoring
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml logs -f prometheus grafana loki promtail
+
+logs-grafana: ## Logs Grafana uniquement
+	@echo "$(CYAN)📋 Logs Grafana:$(NC)"
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml logs -f grafana
+
+logs-prometheus: ## Logs Prometheus uniquement
+	@echo "$(CYAN)📋 Logs Prometheus:$(NC)"
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml logs -f prometheus
+
+logs-loki: ## Logs Loki uniquement
+	@echo "$(CYAN)📋 Logs Loki:$(NC)"
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml logs -f loki
+
+open-grafana: ## Ouvrir Grafana dans le navigateur
+	@echo "$(GREEN)🌐 Ouverture Grafana...$(NC)"
+	@echo "   URL: http://localhost:3001"
+	@echo "   User: admin"
+	@echo "   Pass: admin123"
+	@start http://localhost:3001 || open http://localhost:3001 || xdg-open http://localhost:3001
+
+open-prometheus: ## Ouvrir Prometheus dans le navigateur
+	@echo "$(GREEN)🌐 Ouverture Prometheus...$(NC)"
+	@start http://localhost:9090 || open http://localhost:9090 || xdg-open http://localhost:9090
+
+open-loki: ## Ouvrir Loki (via Grafana Explore) dans le navigateur
+	@echo "$(GREEN)🌐 Ouverture Loki (Grafana Explore)...$(NC)"
+	@start http://localhost:3001/explore || open http://localhost:3001/explore || xdg-open http://localhost:3001/explore
+
+monitoring-dashboard: ## Afficher les liens monitoring
+	@echo "$(CYAN)╔════════════════════════════════════════════════════════════╗$(NC)"
+	@echo "$(CYAN)║              DASHBOARD MONITORING - LIENS                 ║$(NC)"
+	@echo "$(CYAN)╚════════════════════════════════════════════════════════════╝$(NC)"
+	@echo ""
+	@echo "$(YELLOW)📊 Visualisation:$(NC)"
+	@echo "   Grafana:     http://localhost:3001"
+	@echo "                User: admin / Pass: admin123"
+	@echo ""
+	@echo "$(YELLOW)📈 Métriques:$(NC)"
+	@echo "   Prometheus:  http://localhost:9090"
+	@echo "   cAdvisor:    http://localhost:8081"
+	@echo ""
+	@echo "$(YELLOW)📋 Logs:$(NC)"
+	@echo "   Loki:        http://localhost:3100"
+	@echo "   Explore:     http://localhost:3001/explore"
+	@echo ""
+	@echo "$(YELLOW)🔍 Commandes utiles:$(NC)"
+	@echo "   make logs-monitoring     # Tous les logs monitoring"
+	@echo "   make status-monitoring   # État des services"
+	@echo "   make restart-monitoring  # Redémarrer"
+	@echo ""
+
+setup-monitoring: ## Installation complète monitoring
+	@echo "$(GREEN)⚙️  Installation monitoring...$(NC)"
+	@echo ""
+	@echo "$(CYAN)Étape 1/4: Création réseau Docker...$(NC)"
+	@docker network create surveillance_net 2>/dev/null || echo "   ℹ️  Réseau déjà existant"
+	@echo ""
+	@echo "$(CYAN)Étape 2/4: Build images monitoring...$(NC)"
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml build prometheus grafana loki promtail
+	@echo ""
+	@echo "$(CYAN)Étape 3/4: Démarrage services...$(NC)"
+	@$(MAKE) start-monitoring
+	@echo ""
+	@echo "$(CYAN)Étape 4/4: Configuration terminée$(NC)"
+	@echo ""
+	@echo "$(GREEN)✅ Monitoring installé !$(NC)"
+	@echo ""
+	@$(MAKE) monitoring-dashboard
+
+clean-monitoring: ## Nettoyer les données monitoring
+	@echo "$(RED)🧹 Nettoyage données monitoring...$(NC)"
+	@docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml down -v
+	@echo "$(GREEN)✅ Données monitoring nettoyées$(NC)"

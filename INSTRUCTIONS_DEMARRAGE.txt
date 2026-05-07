@@ -1,0 +1,156 @@
+===============================================================================
+    INSTRUCTIONS DE DÉMARRAGE - APPLICATION SURVEILLANCE AGRICOLE
+===============================================================================
+
+📋 PRÉREQUIS
+-------------------------------------------------------------------------------
+✅ Docker Desktop installé et démarré
+✅ 8 GB RAM minimum (16 GB recommandé)
+✅ 10 GB espace disque libre
+
+Si Docker n'est pas installé :
+→ Téléchargez depuis : https://www.docker.com/products/docker-desktop
+
+
+🚀 MÉTHODE 1 : DÉMARRAGE AUTOMATIQUE (RECOMMANDÉ)
+-------------------------------------------------------------------------------
+
+Windows :
+1. Double-cliquer sur : start-app.bat
+2. Choisir l'option 1 (Mode développement)
+3. Attendre 2-3 minutes
+4. Ouvrir http://localhost dans votre navigateur
+
+OU
+
+PowerShell (Vérification système) :
+1. Clic droit sur check-system.ps1 → "Exécuter avec PowerShell"
+2. Vérifier que tout est OK
+3. Suivre les instructions affichées
+
+
+🔧 MÉTHODE 2 : LIGNE DE COMMANDE
+-------------------------------------------------------------------------------
+
+1. Ouvrir un terminal (CMD ou PowerShell)
+
+2. Naviguer vers le dossier du projet :
+   cd "C:\Users\7MAKSACOD PC\Downloads\dossiers soutenance\Alamine_Bouba_Project_v0"
+
+3. Démarrer l'application :
+   docker-compose up -d
+
+   OU avec le Makefile (si make est installé) :
+   make dev
+
+4. Attendre que tous les services démarrent (2-3 minutes)
+
+5. Vérifier l'état des services :
+   docker-compose ps
+
+   Tous les services doivent afficher "Up" ou "Up (healthy)"
+
+
+🌐 ACCÈS AUX SERVICES
+-------------------------------------------------------------------------------
+
+Une fois l'application démarrée, accédez aux services via :
+
+Interface Principale     : http://localhost
+API Documentation       : http://localhost/api/docs/
+Administration Django   : http://localhost/admin/
+Base de Données (PgAdmin): http://localhost:5050
+Monitoring Celery (Flower): http://localhost:5555
+Stockage (MinIO)        : http://localhost:9001
+
+
+👤 CRÉER UN COMPTE ADMINISTRATEUR
+-------------------------------------------------------------------------------
+
+Pour la première utilisation, vous devez créer un superutilisateur :
+
+1. Ouvrir un terminal
+
+2. Exécuter :
+   docker-compose exec backend python manage.py createsuperuser
+
+3. Remplir les informations demandées :
+   - Email : admin@example.com (ou votre choix)
+   - NIN : 1234567890 (identifiant national)
+   - Nom : Admin
+   - Prénom : System
+   - Mot de passe : (choisir un mot de passe sécurisé)
+
+4. Se connecter sur http://localhost avec ces identifiants
+
+
+📊 VÉRIFIER LE FONCTIONNEMENT
+-------------------------------------------------------------------------------
+
+1. Afficher les logs en temps réel :
+   docker-compose logs -f
+
+   Pour arrêter l'affichage : Ctrl+C
+
+2. Vérifier un service spécifique :
+   docker-compose logs backend
+   docker-compose logs frontend
+   docker-compose logs postgres
+
+3. Tester l'API :
+   Ouvrir http://localhost/api/docs/
+   Cliquer sur "Try it out" sur un endpoint
+
+
+🛑 ARRÊTER L'APPLICATION
+-------------------------------------------------------------------------------
+
+Méthode 1 (Recommandée) :
+   docker-compose down
+
+Méthode 2 (Avec suppression des données) :
+   ⚠️ ATTENTION : Supprime toutes les données de la base !
+   docker-compose down -v
+
+
+❌ PROBLÈMES COURANTS
+-------------------------------------------------------------------------------
+
+Problème : "Port already in use"
+→ Solution : Arrêter le service utilisant le port OU modifier docker-compose.yml
+
+Problème : "Cannot connect to Docker daemon"
+→ Solution : Démarrer Docker Desktop et attendre qu'il soit complètement lancé
+
+Problème : Services ne démarrent pas
+→ Solution :
+  1. docker-compose down
+  2. docker-compose build
+  3. docker-compose up -d
+
+Problème : "Database connection refused"
+→ Solution : Attendre 1-2 minutes que PostgreSQL démarre complètement
+
+
+📚 DOCUMENTATION COMPLÈTE
+-------------------------------------------------------------------------------
+
+Pour plus de détails, consultez :
+
+- DEMARRAGE_RAPIDE.md      : Guide détaillé de démarrage
+- README.md                : Vue d'ensemble du projet
+- CLAUDE.md                : Architecture technique
+- SPECIFICATIONS_FONCTIONNELLES.md : Règles de gestion
+
+
+🆘 BESOIN D'AIDE ?
+-------------------------------------------------------------------------------
+
+1. Vérifier la documentation dans les fichiers .md
+2. Consulter les logs : docker-compose logs -f
+3. Vérifier l'état : docker-compose ps
+
+
+===============================================================================
+    BON DÉVELOPPEMENT ! 🚀
+===============================================================================

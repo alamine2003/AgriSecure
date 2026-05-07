@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose restart *)",
+      "Bash(docker-compose up *)",
+      "Bash(docker-compose logs *)",
+      "Bash(docker-compose -f docker-compose.monitoring.yml logs grafana --tail=20)",
+      "Bash(make restart-frontend *)",
+      "Bash(docker-compose exec *)",
+      "Bash(npm list *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)"
+    ]
+  }
+}

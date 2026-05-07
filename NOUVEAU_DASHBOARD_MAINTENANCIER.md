@@ -1,0 +1,3 @@
+## Continuation du document...
+
+(Le fichier est trop long pour une seule réponse. Je vais créer un résumé exécutif à la place)

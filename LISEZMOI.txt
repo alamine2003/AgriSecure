@@ -1,0 +1,124 @@
+===============================================================================
+    🌾 SYSTÈME DE SURVEILLANCE AGRICOLE - DÉMARRAGE RAPIDE
+===============================================================================
+
+📋 POUR COMMENCER MAINTENANT
+===============================================================================
+
+Option 1: Avec make (si installé)
+───────────────────────────────────
+    make fix-login
+
+Option 2: Sans make (Windows)
+───────────────────────────────────
+    make.bat fix-login
+
+Puis ouvre: http://localhost:3000
+Login: admin@test.com / admin123
+
+
+📖 DOCUMENTATION
+===============================================================================
+
+DEMARRAGE_IMMEDIAT.md    → Guide ultra-rapide
+COMMANDES.md             → Liste complète commandes make
+GUIDE_DEMARRAGE.md       → Guide détaillé complet
+MONITORING_QUICK.md      → Monitoring rapide (Grafana)
+MONITORING.md            → Monitoring complet
+CLAUDE.md                → Architecture technique
+
+
+🚀 COMMANDES PRINCIPALES
+===============================================================================
+
+Démarrage:
+    make start-dev       ou    make.bat start-dev
+    make start-prod      ou    make.bat start-prod
+
+Correction:
+    make fix-login       ou    make.bat fix-login
+    make diagnostic      ou    make.bat diagnostic
+
+Aide:
+    make help            ou    make.bat help
+
+
+✅ INSTALLATION COMPLÈTE (PREMIÈRE FOIS)
+===============================================================================
+
+1. Copier .env.example vers .env:
+    copy .env.example .env
+
+2. Installation:
+    make install         ou    make.bat install
+
+3. Démarrer:
+    make start-dev       ou    make.bat start-dev
+
+4. Ouvrir:
+    http://localhost:3000
+
+5. Se connecter:
+    Email:    admin@test.com
+    Password: admin123
+
+
+🎯 POUR LA SOUTENANCE
+===============================================================================
+
+Préparation:
+    make reset
+    make install
+    make start-dev
+    make setup-monitoring     (optionnel: monitoring Grafana)
+    make diagnostic
+
+Démo:
+    Ouvre http://localhost:3000
+    Login: admin@test.com / admin123
+    Dashboard maintenancier s'affiche
+
+Monitoring (optionnel):
+    make open-grafana         (admin / admin123)
+    Montrer métriques temps réel
+
+
+🔧 SI PROBLÈME
+===============================================================================
+
+1. Voir l'état:
+    make status          ou    make.bat status
+
+2. Diagnostic:
+    make diagnostic      ou    make.bat diagnostic
+
+3. Voir les logs:
+    make logs            ou    make.bat logs
+
+4. Reset complet:
+    make reset
+    make install
+    make start-dev
+
+
+💡 ASTUCE
+===============================================================================
+
+Toutes les commandes sont centralisées dans le Makefile.
+Plus besoin de chercher parmi les fichiers .bat !
+
+    make help            Liste TOUTES les commandes disponibles
+
+
+📞 AIDE
+===============================================================================
+
+Consulter:
+    - DEMARRAGE_IMMEDIAT.md    (guide rapide)
+    - COMMANDES.md             (commandes make)
+    - GUIDE_DEMARRAGE.md       (guide complet)
+
+
+Date: 2026-05-07
+Version: 2.0 - Makefile Centralisé
+Statut: ✅ PRÊT À L'EMPLOI
