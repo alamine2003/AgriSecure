@@ -239,7 +239,7 @@ class TestWebSocketBroadcaster:
 
         assert result is True
 
-    @patch('channels.layers.get_channel_layer')
+    @patch('camera.websocket_broadcaster.get_channel_layer')
     def test_broadcast_frame_no_channel_layer(self, mock_get_channel_layer):
         """Test d'échec si channel layer absent."""
         from camera.websocket_broadcaster import WebSocketBroadcaster
