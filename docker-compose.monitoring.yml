@@ -1,5 +1,5 @@
 # Monitoring Stack - Prometheus + Grafana + Loki + Promtail
-# Usage: make start-monitoring
+# Usage: make monitoring-up
 
 services:
   # Prometheus - Metrics collection
@@ -44,7 +44,7 @@ services:
 
   # Loki - Log aggregation
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:2.9.8
     container_name: surveillance_loki
     restart: unless-stopped
     ports:
@@ -101,6 +101,48 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
+    networks:
+      - surveillance_net
+
+  # PostgreSQL Exporter
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: surveillance_postgres_exporter
+    restart: unless-stopped
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER:-surveillance_user}:${POSTGRES_PASSWORD:-StrongPass123!}@postgres:5432/${POSTGRES_DB:-surveillance_db}?sslmode=disable
+    ports:
+      - "9187:9187"
+    depends_on:
+      - postgres
+    networks:
+      - surveillance_net
+
+  # Redis Exporter
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: surveillance_redis_exporter
+    restart: unless-stopped
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      - redis
+    networks:
+      - surveillance_net
+
+  # Nginx Exporter
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: surveillance_nginx_exporter
+    restart: unless-stopped
+    command:
+      - '-nginx.scrape-uri=http://nginx:80/stub_status'
+    ports:
+      - "9113:9113"
+    depends_on:
+      - nginx
     networks:
       - surveillance_net
 

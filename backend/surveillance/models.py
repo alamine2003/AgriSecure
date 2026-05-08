@@ -3,6 +3,13 @@ from django.db import models
 from django.conf import settings
 from .models_technician import Technician
 
+# Important : importer ici les modèles définis dans des fichiers séparés
+# pour que Django les enregistre dans l'app 'surveillance'.
+# Sans ces imports, Django ne les "voit" pas et génère une migration
+# de SUPPRESSION (FieldPerimeter, Subscription, Payment).
+from .models_perimeter import FieldPerimeter  # noqa: F401
+from .models_subscription import Subscription, Payment 
+
 class Camera(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
