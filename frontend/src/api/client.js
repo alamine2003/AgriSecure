@@ -21,26 +21,24 @@ client.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
-    // Si 401 (Unauthorized) et pas déjà une tentative de retry
-    if (error.response?.status === 401 && !originalRequest._retry) {
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         const refresh = localStorage.getItem('refresh_token');
         if (!refresh) throw new Error('No refresh token');
-        
-        const res = await axios.post(`${client.defaults.baseURL}/auth/refresh/`, { refresh });
+
+        const res = await client.post('/auth/refresh/', { refresh });
         localStorage.setItem('access_token', res.data.access);
-        
+
         originalRequest.headers.Authorization = `Bearer ${res.data.access}`;
         return client(originalRequest);
       } catch (refreshError) {
-        // Échec du refresh -> Logout
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        if (typeof window !== 'undefined') window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }

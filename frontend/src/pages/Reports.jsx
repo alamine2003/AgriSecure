@@ -58,14 +58,14 @@ const Reports = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <Card className="lg:col-span-1">
+                <Card className="lg:col-span-1 lg:order-2">
                     <CardHeader>
                         <CardTitle>Générer</CardTitle>
                         <CardDescription>Période et format.</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleGenerate} className="space-y-4">
-                            <div className="space-y-2">
+                    <CardContent className="pt-6">
+                        <form onSubmit={handleGenerate} className="space-y-6">
+                            <div className="space-y-3">
                                 <Label htmlFor="start_date">Date de début</Label>
                                 <Input
                                     id="start_date"
@@ -75,9 +75,10 @@ const Reports = () => {
                                         setFormData({ ...formData, start_date: e.target.value })
                                     }
                                     required
+                                    className="h-11"
                                 />
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 <Label htmlFor="end_date">Date de fin</Label>
                                 <Input
                                     id="end_date"
@@ -87,13 +88,14 @@ const Reports = () => {
                                         setFormData({ ...formData, end_date: e.target.value })
                                     }
                                     required
+                                    className="h-11"
                                 />
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 <Label htmlFor="report_type">Format</Label>
                                 <select
                                     id="report_type"
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                                     value={formData.report_type}
                                     onChange={(e) =>
                                         setFormData({ ...formData, report_type: e.target.value })
@@ -104,14 +106,14 @@ const Reports = () => {
                                 </select>
                             </div>
 
-                            <Button type="submit" className="w-full" disabled={generateMutation.isPending}>
+                            <Button type="submit" className="w-full mt-2 h-11" disabled={generateMutation.isPending}>
                                 {generateMutation.isPending ? "Génération..." : "Générer le rapport"}
                             </Button>
                         </form>
                     </CardContent>
                 </Card>
 
-                <Card className="lg:col-span-2">
+                <Card className="lg:col-span-2 lg:order-1">
                     <CardHeader>
                         <CardTitle>Historique</CardTitle>
                         <CardDescription>Rapports disponibles au téléchargement.</CardDescription>

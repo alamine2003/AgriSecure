@@ -48,7 +48,23 @@ const ChangePasswordV3 = () => {
     e.preventDefault()
 
     if (newPassword.length < 8) {
-      notify.warning("Mot de passe faible", "Le mot de passe doit contenir au moins 8 caractères")
+      notify.warning("Mot de passe trop court", "Le mot de passe doit contenir au moins 8 caractères")
+      return
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      notify.warning("Complexité insuffisante", "Le mot de passe doit contenir au moins une lettre majuscule")
+      return
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      notify.warning("Complexité insuffisante", "Le mot de passe doit contenir au moins une lettre minuscule")
+      return
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      notify.warning("Complexité insuffisante", "Le mot de passe doit contenir au moins un chiffre")
+      return
+    }
+    if (!/[^a-zA-Z0-9]/.test(newPassword)) {
+      notify.warning("Complexité insuffisante", "Le mot de passe doit contenir au moins un caractère spécial (!@#$%...)")
       return
     }
 

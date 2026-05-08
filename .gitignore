@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 node_modules/
 build/
 dist/
@@ -37,3 +38,36 @@ backend/ai_engine/models/*.pt
 *.bat
 *.ps1
 !make.bat
+=======
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+*.pid
+
+# Media & Static (generated)
+backend/static/
+backend/media/
+>>>>>>> feature/interface

@@ -1,26 +1,17 @@
-import React from 'react'
-import { Badge } from '@/components/ui/badge'
-
-export const SectionHeader = ({
-  title,
-  icon: Icon,
-  count,
-  action,
-  gradient = 'from-gray-50 to-gray-100'
-}) => {
+export const SectionHeader = ({ title, icon: Icon, count, action }) => {
   return (
-    <div className="flex items-center justify-between p-5 border-b border-gray-100">
+    <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
       <div className="flex items-center gap-3">
         {Icon && (
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-            <Icon className="w-4 h-4 text-indigo-600" />
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Icon className="w-4 h-4 text-primary" />
           </div>
         )}
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         {count !== undefined && (
-          <Badge className="bg-indigo-100 text-indigo-700 border-0 text-xs font-medium">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">
             {count}
-          </Badge>
+          </span>
         )}
       </div>
       {action && <div>{action}</div>}

@@ -11,10 +11,10 @@ export const ActionButton = ({
   className = ''
 }) => {
   const variants = {
-    primary: 'bg-indigo-600 hover:bg-indigo-700',
-    success: 'bg-emerald-600 hover:bg-emerald-700',
-    danger: 'bg-red-500 hover:bg-red-600',
-    warning: 'bg-amber-500 hover:bg-amber-600',
+    primary: 'bg-white text-brand-700 hover:bg-white/90 border border-white/40',
+    success: 'bg-amber-300 text-brand-900 hover:bg-amber-200',
+    danger: 'bg-red-500 hover:bg-red-600 text-white',
+    warning: 'bg-amber-500 hover:bg-amber-600 text-white',
   }
 
   const sizes = {
@@ -27,7 +27,7 @@ export const ActionButton = ({
     <Button
       onClick={onClick}
       disabled={disabled}
-      className={`${variants[variant]} ${sizes[size]} text-white rounded-xl shadow-sm transition-all duration-200 ${className}`}
+      className={`${variants[variant]} ${sizes[size]} rounded-xl shadow-sm font-semibold transition-all duration-200 ${className}`}
     >
       {Icon && <Icon className="w-4 h-4 mr-2" />}
       {children}

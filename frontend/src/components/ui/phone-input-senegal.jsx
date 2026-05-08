@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Phone, CheckCircle, XCircle } from 'lucide-react'
 import { formatSenegalPhone, isValidSenegalPhone } from '@/data/senegalLocations'
 
@@ -14,7 +14,6 @@ export const PhoneInputSenegal = ({
   const [touched, setTouched] = useState(false)
 
   const handleChange = (e) => {
-    const input = e.target.value
     onChange(e)
   }
 
@@ -22,13 +21,10 @@ export const PhoneInputSenegal = ({
     setFocused(false)
     setTouched(true)
 
-    // Auto-format au blur
     if (value) {
       const formatted = formatSenegalPhone(value)
       if (formatted !== value) {
-        const event = {
-          target: { value: formatted, name: id }
-        }
+        const event = { target: { value: formatted, name: id } }
         onChange(event)
       }
     }
@@ -41,30 +37,28 @@ export const PhoneInputSenegal = ({
     <div className="relative">
       <div className={`
         relative flex items-center gap-2 px-4 py-3
-        bg-white border-2 rounded-xl
+        bg-white/[0.04] border rounded-xl
         transition-all duration-300
         ${focused
-          ? 'border-green-500 ring-2 ring-green-500/20 shadow-lg'
+          ? 'border-primary ring-2 ring-primary/20'
           : showValidation && isValid
-            ? 'border-green-400 hover:border-green-500'
+            ? 'border-amber-500/50 hover:border-amber-500'
             : showValidation && !isValid
-              ? 'border-red-400 hover:border-red-500'
-              : 'border-gray-300 hover:border-gray-400'
+              ? 'border-destructive/50 hover:border-destructive'
+              : 'border-white/[0.08] hover:border-white/[0.15]'
         }
-        ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'hover:shadow-md'}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
       `}>
         {/* Indicatif Sénégal */}
-        <div className="flex items-center gap-2 border-r border-gray-300 pr-3">
+        <div className="flex items-center gap-2 border-r border-white/[0.08] pr-3">
           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-600 via-yellow-400 to-red-600 flex items-center justify-center shadow-sm">
-            <span className="text-xs font-bold text-white">SN</span>
+            <span className="text-[9px] font-bold text-white">SN</span>
           </div>
-          <span className="text-sm font-semibold text-gray-700">+221</span>
+          <span className="text-sm font-semibold text-amber-100">+221</span>
         </div>
 
-        {/* Icon téléphone */}
-        <Phone className="w-5 h-5 text-green-600" />
+        <Phone className="w-4 h-4 text-primary" />
 
-        {/* Input */}
         <input
           id={id}
           type="tel"
@@ -75,41 +69,34 @@ export const PhoneInputSenegal = ({
           disabled={disabled}
           required={required}
           placeholder={placeholder}
-          className={`
-            flex-1 outline-none bg-transparent
-            text-gray-900 font-medium
-            placeholder:text-gray-400
-            ${disabled ? 'cursor-not-allowed' : ''}
-          `}
+          className="flex-1 outline-none bg-transparent text-amber-100 font-medium placeholder:text-muted-foreground/50 disabled:cursor-not-allowed"
         />
 
-        {/* Validation icon */}
         {showValidation && (
           <div className="flex-shrink-0">
             {isValid ? (
-              <CheckCircle className="w-5 h-5 text-green-600" />
+              <CheckCircle className="w-4 h-4 text-amber-500" />
             ) : (
-              <XCircle className="w-5 h-5 text-red-600" />
+              <XCircle className="w-4 h-4 text-destructive" />
             )}
           </div>
         )}
       </div>
 
-      {/* Helper text */}
       <div className="mt-2 px-1">
         {showValidation && !isValid ? (
-          <p className="text-xs text-red-600 font-medium flex items-center gap-1">
+          <p className="text-[11px] text-destructive font-medium flex items-center gap-1">
             <XCircle className="w-3 h-3" />
-            Format invalide. Ex: 77 123 45 67 (préfixes valides: 77, 78, 76, 70, 75)
+            Format invalide. Ex: 77 123 45 67
           </p>
         ) : showValidation && isValid ? (
-          <p className="text-xs text-green-600 font-medium flex items-center gap-1">
+          <p className="text-[11px] text-amber-500 font-medium flex items-center gap-1">
             <CheckCircle className="w-3 h-3" />
             Numéro valide
           </p>
         ) : (
-          <p className="text-xs text-gray-500">
-            Format: XX XXX XX XX (9 chiffres, commence par 77, 78, 76, 70 ou 75)
+          <p className="text-[11px] text-muted-foreground">
+            Format: XX XXX XX XX (9 chiffres)
           </p>
         )}
       </div>

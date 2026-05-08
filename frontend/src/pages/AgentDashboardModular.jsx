@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Map } from "lucide-react"
 import { FieldMapDrawer } from "../components/ui/field-map-drawer"
+import { DashboardMap } from "../components/ui/dashboard-map"
 
 // Import des composants modulaires
 import { DashboardLayout } from "../components/templates/DashboardLayout"
@@ -250,6 +251,15 @@ export default function AgentDashboardModular() {
               />
             </div>
           </div>
+
+          {/* Row 3: Carte des périmètres */}
+          <DashboardMap
+            perimeters={perimeters}
+            cameras={cameras}
+            height="380px"
+            title="Mes périmètres & caméras"
+            icon={Map}
+          />
         </div>
       </DashboardLayout>
 
