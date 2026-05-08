@@ -24,7 +24,8 @@ class FieldPerimeter(models.Model):
     # Surface en hectares
     area_hectares = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     
-    # Statut Premium pour visibilité carte
+    # Statut du périmètre
+    is_active = models.BooleanField(default=True)
     is_premium_visible = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)

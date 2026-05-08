@@ -1,54 +1,31 @@
-services:
-  nginx:
-    environment:
-      - NGINX_MODE=dev
-      - FRONTEND_PORT=3000
+# Override local pour développement (appliqué automatiquement)
+# Ce fichier est mergé avec docker-compose.yml par défaut
+# Camera Windows/USBIPD: la variable VIDEO_DEVICE est configurable dans .env
 
+services:
   backend:
     volumes:
       - ./backend:/app
     environment:
       - DJANGO_DEBUG=True
       - DJANGO_SETTINGS_MODULE=core.settings.dev
-      - CAMERA_INDEX=0
-      - CAMERA_FPS=15
+      - CAMERA_INDEX=${CAMERA_INDEX:-0}
+      - CAMERA_FPS=${CAMERA_FPS:-15}
       - YOLO_CONFIDENCE_THRESHOLD=0.5
       - YOLO_CACHE_TTL_SECONDS=30
-    ports:
-      - "8000:8000"
-    # Configuration caméra pour développement (Windows)
     devices:
-      - "/dev/video0:/dev/video0"  # Linux
-
-  frontend:
-    build:
-      context: ./frontend
-      target: build-stage
-    command: npm run dev -- --host 0.0.0.0
-    working_dir: /app
-    environment:
-      - VITE_API_URL=/api/v1
-      - VITE_WS_URL=ws://localhost:3000/ws
-      - VITE_DISABLE_HMR=1
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "${VIDEO_DEVICE:-/dev/video0}:/dev/video0"
+    group_add:
+      - "${VIDEO_GID:-44}"
 
   celery-worker:
     volumes:
       - ./backend:/app
     environment:
       - DJANGO_SETTINGS_MODULE=core.settings.dev
-      - CAMERA_INDEX=0
-      - CAMERA_FPS=15
-    # Configuration caméra pour développement
+      - CAMERA_INDEX=${CAMERA_INDEX:-0}
+      - CAMERA_FPS=${CAMERA_FPS:-15}
     devices:
-      - "/dev/video0:/dev/video0"  # Linux
-
-  celery-beat:
-    volumes:
-      - ./backend:/app
-    environment:
-      - DJANGO_SETTINGS_MODULE=core.settings.dev
+      - "${VIDEO_DEVICE:-/dev/video0}:/dev/video0"
+    group_add:
+      - "${VIDEO_GID:-44}"

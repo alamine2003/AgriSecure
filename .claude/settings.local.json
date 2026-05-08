@@ -9,7 +9,10 @@
       "Bash(docker-compose exec *)",
       "Bash(npm list *)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(npx vite *)",
+      "Bash(make dev *)",
+      "Bash(git checkout *)"
     ]
   }
 }

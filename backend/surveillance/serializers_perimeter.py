@@ -8,8 +8,8 @@ class FieldPerimeterSerializer(serializers.ModelSerializer):
         model = FieldPerimeter
         fields = [
             'id', 'agent', 'name', 'description', 'coordinates',
-            'center_lat', 'center_lng', 'area_hectares', 
-            'is_premium_visible', 'created_at', 'updated_at'
+            'center_lat', 'center_lng', 'area_hectares',
+            'is_active', 'is_premium_visible', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'agent', 'area_hectares', 'created_at', 'updated_at']
 

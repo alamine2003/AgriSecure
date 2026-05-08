@@ -29,3 +29,11 @@ celerybeat-schedule.*
 # Media & Static (generated)
 backend/static/
 backend/media/
+
+# YOLO models (downloaded at runtime)
+backend/ai_engine/models/*.pt
+
+# Legacy scripts (use Makefile instead)
+*.bat
+*.ps1
+!make.bat

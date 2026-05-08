@@ -6,6 +6,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 
@@ -185,6 +186,42 @@ class FieldPerimeterViewSet(viewsets.ModelViewSet):
                 {'error': f'Format JSON invalide: {str(e)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+    def perform_create(self, serializer):
+        serializer.save(agent=self.request.user)
+
+    @action(detail=True, methods=['GET'])
+    def geojson(self, request, pk=None):
+        """Retourner les coordonnees au format GeoJSON"""
+        perimeter = self.get_object()
+
+        if not perimeter.coordinates:
+            return Response(
+                {'error': 'Coordonnees non definies'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            coords = json.loads(perimeter.coordinates) if isinstance(perimeter.coordinates, str) else perimeter.coordinates
+        except (json.JSONDecodeError, TypeError):
+            coords = []
+
+        geojson = {
+            "type": "Feature",
+            "properties": {
+                "id": str(perimeter.id),
+                "name": perimeter.name,
+                "description": perimeter.description,
+                "area_hectares": float(perimeter.area_hectares) if perimeter.area_hectares else None,
+                "agent": perimeter.agent.get_full_name() or perimeter.agent.email
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [coords] if coords else []
+            }
+        }
+
+        return Response(geojson)
 
     @action(detail=False, methods=['GET'])
     def map_data(self, request):

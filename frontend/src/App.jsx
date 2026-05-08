@@ -7,10 +7,7 @@ import Login from './pages/Login';
 import RegisterAgent from './pages/RegisterAgent';
 import ChangePassword from './pages/ChangePasswordV3';
 import Dashboard from './pages/Dashboard';
-import AgentDashboardV3 from './pages/AgentDashboardV3';
-import AgentDashboardUnified from './pages/AgentDashboardUnified';
 import AgentDashboardModular from './pages/AgentDashboardModular';
-import PerimeterDefinition from './pages/PerimeterDefinition';
 import PerimeterDefinitionAdvanced from './pages/PerimeterDefinitionAdvanced';
 import MaintenancierDashboard from './pages/MaintenancierDashboard';
 import AgentsManagement from './pages/AgentsManagement';
@@ -64,22 +61,6 @@ function App() {
             element={
               <RequireRole role="agent_agricole">
                 <PerimeterDefinitionAdvanced />
-              </RequireRole>
-            }
-          />
-          <Route
-            path="/agent/dashboard-old"
-            element={
-              <RequireRole role="agent_agricole">
-                <AgentDashboardV3 />
-              </RequireRole>
-            }
-          />
-          <Route
-            path="/agent/perimeter-old"
-            element={
-              <RequireRole role="agent_agricole">
-                <PerimeterDefinition />
               </RequireRole>
             }
           />

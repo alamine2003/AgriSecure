@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import App from './App.jsx'
 import './index.css'
+import 'leaflet/dist/leaflet.css'
 
 document.documentElement.classList.add('dark')
 

@@ -4,11 +4,14 @@ import client from '../api/client';
 import {
   Users, UserPlus, UserCheck, UserX, Calendar, Camera,
   AlertTriangle, TrendingUp, Activity, Clock, CheckCircle,
-  XCircle, Eye, Shield, Zap, Target, Sparkles, ArrowUpRight
+  XCircle, Eye, Shield, Zap, Target, Sparkles, ArrowUpRight,
+  MapPin
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { MapContainer, TileLayer, Marker, Polygon, Popup, Tooltip } from 'react-leaflet';
+import L from 'leaflet';
 
 export default function MaintenancierDashboardV3() {
   const { data: kpi, isLoading: kpiLoading } = useQuery({
@@ -25,6 +28,22 @@ export default function MaintenancierDashboardV3() {
     queryFn: async () => {
       const res = await client.get('/surveillance/audit-logs/?limit=15');
       return Array.isArray(res.data) ? res.data : res.data?.results || [];
+    },
+  });
+
+  const { data: cameras } = useQuery({
+    queryKey: ['all-cameras'],
+    queryFn: async () => {
+      const res = await client.get('/surveillance/cameras/');
+      return Array.isArray(res.data) ? res.data : res.data?.results || [];
+    },
+  });
+
+  const { data: mapPerimeters } = useQuery({
+    queryKey: ['map-perimeters'],
+    queryFn: async () => {
+      const res = await client.get('/surveillance/perimeters/map_data/');
+      return res.data?.perimeters || [];
     },
   });
 
@@ -271,6 +290,100 @@ export default function MaintenancierDashboardV3() {
             </div>
           );
         })}
+      </div>
+
+      {/* Carte des Cameras et Perimetres */}
+      <div className="rounded-2xl bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl overflow-hidden">
+        <div className="border-b border-gray-100 bg-gradient-to-r from-green-50 to-teal-50 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-green-600" />
+                Carte de Surveillance
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Localisation des cameras et perimetres agricoles
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Badge variant="secondary" className="shadow-sm">
+                <Camera className="w-3 h-3 mr-1" />
+                {cameras?.filter(c => c.latitude && c.longitude).length || 0} cameras
+              </Badge>
+              <Badge variant="secondary" className="shadow-sm">
+                <Target className="w-3 h-3 mr-1" />
+                {mapPerimeters?.length || 0} perimetres
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        <div className="h-[400px]">
+          <MapContainer
+            center={[14.6928, -17.4467]}
+            zoom={7}
+            className="h-full w-full"
+            scrollWheelZoom={true}
+            attributionControl={false}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+            {/* Markers des cameras */}
+            {cameras?.filter(c => c.latitude && c.longitude).map((camera) => (
+              <Marker
+                key={camera.id}
+                position={[parseFloat(camera.latitude), parseFloat(camera.longitude)]}
+                icon={L.divIcon({
+                  className: 'custom-camera-marker',
+                  html: `<div style="background: ${camera.is_active ? '#10b981' : '#ef4444'}; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  </div>`,
+                  iconSize: [28, 28],
+                  iconAnchor: [14, 14],
+                })}
+              >
+                <Popup>
+                  <div className="text-sm">
+                    <p className="font-semibold">{camera.name}</p>
+                    <p className="text-gray-500">{camera.location}</p>
+                    <p className={camera.is_active ? 'text-green-600' : 'text-red-600'}>
+                      {camera.is_active ? 'Active' : 'Inactive'}
+                    </p>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+
+            {/* Polygones des perimetres */}
+            {mapPerimeters?.map((perimeter) => {
+              const positions = perimeter.coordinates?.map(c => [
+                c[1] || c[0],
+                c[0] || c[1]
+              ]);
+              if (!positions || positions.length < 3) return null;
+              return (
+                <Polygon
+                  key={perimeter.id}
+                  positions={positions}
+                  pathOptions={{
+                    color: perimeter.is_active ? '#4f46e5' : '#9ca3af',
+                    fillColor: perimeter.is_active ? '#818cf8' : '#d1d5db',
+                    fillOpacity: 0.25,
+                    weight: 2,
+                  }}
+                >
+                  <Tooltip>
+                    <span className="font-semibold">{perimeter.name}</span>
+                    <br />
+                    Agent: {perimeter.agent?.name}
+                    <br />
+                    {perimeter.area_hectares?.toFixed(2)} ha
+                  </Tooltip>
+                </Polygon>
+              );
+            })}
+          </MapContainer>
+        </div>
       </div>
 
       {/* Bottom Section - Bento Grid */}

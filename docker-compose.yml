@@ -105,7 +105,7 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=core.settings.prod
     env_file:
-      - .env
+      - .env.docker
     depends_on:
       - redis
       - postgres
@@ -147,7 +147,7 @@ services:
     image: mher/flower:2.0
     command: celery --broker=${CELERY_BROKER_URL} flower --port=5555 --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
     env_file:
-      - .env
+      - .env.docker
     ports:
       - "5555:5555"
     depends_on:
