@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import client from '../api/client';
-import { LockKeyhole, Mail, ShieldCheck } from "lucide-react"
+import { LockKeyhole, Mail, ShieldCheck, Radio, Activity, ArrowRight, ArrowLeft } from "lucide-react"
+import logoSvg from "@/assets/logo.svg"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { FloatingInput } from "@/components/ui/floating-input"
 import { notify } from "@/lib/notify"
+import loginField from "@/assets/login-field.jpg"
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
-  
+
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/';
@@ -37,56 +38,25 @@ const Login = () => {
     setLoading(true);
 
     try {
-      console.log('[LOGIN] Tentative de connexion...', { email: email.trim().toLowerCase() });
-
       const normalizedEmail = email.trim().toLowerCase()
       const response = await client.post('/auth/login/', { email: normalizedEmail, password });
-
-      console.log('[LOGIN] Réponse reçue:', response.data);
-
       const { access, refresh, user } = response.data;
 
-      if (!access || !refresh || !user) {
-        console.error('[LOGIN] Données manquantes dans la réponse:', response.data);
-        throw new Error('Réponse invalide du serveur');
-      }
+      if (!access || !refresh || !user) throw new Error('Réponse invalide du serveur');
 
-      console.log('[LOGIN] Sauvegarde dans localStorage...');
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       localStorage.setItem('user', JSON.stringify(user));
 
-      console.log('[LOGIN] Données sauvegardées:', {
-        hasToken: !!localStorage.getItem('access_token'),
-        hasUser: !!localStorage.getItem('user'),
-        userRole: user.role
-      });
-
       if (user.must_change_password) {
-        console.log('[LOGIN] Redirection vers change-password');
-        notify.info("Action requise", "Change ton mot de passe pour continuer.", {
-          durationMs: 5000,
-        })
+        notify.info("Action requise", "Change ton mot de passe pour continuer.", { durationMs: 5000 })
         navigate('/change-password');
       } else {
         const roleLabel = user.role === "maintenancier" ? "Maintenancier" : "Agent agricole"
-        console.log('[LOGIN] Connexion réussie, redirection vers /dashboard');
         notify.success("Connecté", `Rôle: ${roleLabel}.`)
-
-        // Force navigation
-        setTimeout(() => {
-          console.log('[LOGIN] Exécution de la navigation...');
-          navigate('/dashboard', { replace: true });
-        }, 100);
+        setTimeout(() => navigate('/dashboard', { replace: true }), 100);
       }
     } catch (err) {
-      console.error('[LOGIN] Erreur:', err);
-      console.error('[LOGIN] Détails:', {
-        response: err?.response?.data,
-        status: err?.response?.status,
-        message: err?.message
-      });
-
       const message =
         err?.response?.data?.detail ||
         err?.response?.data?.non_field_errors?.[0] ||
@@ -101,26 +71,110 @@ const Login = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(34,197,94,0.15),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(16,185,129,0.10),transparent_50%)]" />
+    <div className="relative min-h-screen w-full grid lg:grid-cols-2 bg-slate-950 text-white overflow-hidden">
+      {/* LEFT — Visual */}
+      <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden">
+        <img
+          src={loginField}
+          alt="Champ agricole au lever du soleil"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-950/85 via-slate-950/70 to-amber-900/60" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,0.25),transparent_55%)]" />
 
-      <Card className={`w-full max-w-md ${shake ? "animate-shake" : ""}`}>
-        <CardHeader className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary/15 text-primary">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <CardTitle>Surveillance Agricole</CardTitle>
-              <CardDescription>Accès sécurisé au monitoring.</CardDescription>
-            </div>
+        {/* Brand */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-xl bg-amber-500/20 backdrop-blur ring-1 ring-amber-300/30">
+            <img src={logoSvg} alt="AgriWatch" className="h-7 w-7" />
           </div>
-        </CardHeader>
-        <CardContent>
+          <div className="leading-tight">
+            <p className="text-sm font-semibold tracking-wide">AgriWatch</p>
+            <p className="text-xs text-amber-200/80">Surveillance Intelligente</p>
+          </div>
+        </div>
+
+        {/* Headline */}
+        <div className="relative z-10 max-w-lg space-y-6">
+          <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-200 ring-1 ring-amber-300/30 backdrop-blur">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+            Plateforme professionnelle
+          </span>
+          <h1 className="text-4xl xl:text-5xl font-bold leading-tight tracking-tight">
+            Protégez vos cultures.<br />
+            <span className="bg-gradient-to-r from-amber-300 to-amber-200 bg-clip-text text-transparent">
+              Pilotez vos champs.
+            </span>
+          </h1>
+          <p className="text-base text-slate-200/85 leading-relaxed">
+            Une surveillance temps réel par caméras connectées, des alertes
+            instantanées et une gestion centralisée pour les agents et
+            maintenanciers du terrain.
+          </p>
+
+          <div className="grid grid-cols-3 gap-3 pt-2">
+            {[
+              { icon: Radio, label: "Live 24/7" },
+              { icon: ShieldCheck, label: "Sécurisé" },
+              { icon: Activity, label: "Alertes IA" },
+            ].map(({ icon: Icon, label }) => (
+              <div
+                key={label}
+                className="flex flex-col items-start gap-2 rounded-xl bg-white/5 p-3 ring-1 ring-white/10 backdrop-blur"
+              >
+                <Icon className="h-4 w-4 text-amber-300" />
+                <span className="text-xs font-medium text-slate-100">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="relative z-10 flex items-center justify-between text-xs text-slate-300/70">
+          <span>© {new Date().getFullYear()} AgriWatch — Tous droits réservés</span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            Tous systèmes opérationnels
+          </span>
+        </div>
+      </div>
+
+      {/* RIGHT — Form (force light) */}
+      <div className="relative flex items-center justify-center px-6 py-10 sm:px-12 bg-gradient-to-br from-slate-50 to-amber-50/40 text-slate-900 login-light">
+        <div className="absolute inset-0 -z-0 bg-[radial-gradient(ellipse_at_top_right,rgba(16,185,129,0.12),transparent_55%)]" />
+
+        {/* Back button + Mobile brand */}
+        <div className="absolute top-6 left-6 flex items-center gap-3">
+          <button
+            onClick={() => navigate('/')}
+            className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white/80 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-2 lg:hidden">
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-amber-600/10 text-amber-700">
+              <img src={logoSvg} alt="AgriWatch" className="h-5 w-5" />
+            </div>
+            <span className="text-sm font-semibold text-slate-800">AgriWatch</span>
+          </div>
+        </div>
+
+        <div className={`relative z-10 w-full max-w-md ${shake ? "animate-shake" : ""}`}>
+          <div className="mb-8 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
+              Espace sécurisé
+            </p>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+              Bienvenue
+            </h2>
+            <p className="text-sm text-slate-600">
+              Connectez-vous pour accéder à votre tableau de bord de surveillance.
+            </p>
+          </div>
+
           <form className="space-y-4" onSubmit={handleSubmit}>
             <FloatingInput
               id="email"
-              label="Email"
+              label="Email professionnel"
               type="email"
               autoComplete="email"
               autoCapitalize="none"
@@ -143,14 +197,23 @@ const Login = () => {
               leftSlot={<LockKeyhole className="h-4 w-4 text-muted-foreground" />}
             />
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Connexion..." : "Se connecter"}
+            <Button
+              type="submit"
+              disabled={loading}
+              className="group w-full h-11 bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/20"
+            >
+              {loading ? "Connexion..." : (
+                <>
+                  Se connecter
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </>
+              )}
             </Button>
 
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
               <button
                 type="button"
-                className="underline-offset-4 hover:underline"
+                className="font-medium text-amber-700 hover:text-amber-800 hover:underline underline-offset-4"
                 onClick={() =>
                   notify.info(
                     "Mot de passe oublié",
@@ -160,14 +223,26 @@ const Login = () => {
               >
                 Mot de passe oublié ?
               </button>
-
-              <a className="underline-offset-4 hover:underline" href="/admin/" target="_blank" rel="noreferrer">
-                Admin Django
+              <a
+                className="hover:underline underline-offset-4"
+                href="/admin/"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Admin Django →
               </a>
             </div>
           </form>
-        </CardContent>
-      </Card>
+
+          <div className="mt-10 flex items-center gap-3 rounded-xl border border-slate-200 bg-white/60 p-3 backdrop-blur">
+            <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Connexion chiffrée. Vos données et celles de vos exploitations
+              restent confidentielles.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

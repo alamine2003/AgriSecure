@@ -9,7 +9,9 @@
       "Bash(docker-compose exec *)",
       "Bash(npm list *)",
       "Bash(npm install *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(xargs grep -l \"useState.*\\\\[\\\\|mock\\\\|fake\\\\|dummy\")",
+      "Bash(npx vite *)"
     ]
   }
 }

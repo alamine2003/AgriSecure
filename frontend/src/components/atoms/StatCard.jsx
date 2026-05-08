@@ -1,39 +1,25 @@
-import React from 'react'
+import { cn } from '@/lib/utils'
 
-export const StatCard = ({
-  label,
-  value,
-  subtitle,
-  icon: Icon,
-  gradient,
-  onClick
-}) => {
-  const colorMap = {
-    'from-emerald-500 to-teal-600': { bg: 'bg-emerald-50', text: 'text-emerald-600', iconBg: 'bg-emerald-500' },
-    'from-blue-500 to-indigo-600': { bg: 'bg-blue-50', text: 'text-blue-600', iconBg: 'bg-blue-500' },
-    'from-red-500 to-rose-600': { bg: 'bg-rose-50', text: 'text-rose-600', iconBg: 'bg-rose-500' },
-    'from-orange-500 to-red-600': { bg: 'bg-orange-50', text: 'text-orange-600', iconBg: 'bg-orange-500' },
-  }
-
-  const colors = colorMap[gradient] || { bg: 'bg-gray-50', text: 'text-gray-600', iconBg: 'bg-gray-500' }
-
+export const StatCard = ({ label, value, subtitle, icon: Icon, gradient, onClick }) => {
   return (
     <div
-      className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 ${onClick ? 'cursor-pointer' : ''}`}
+      className={cn(
+        "group relative bg-card rounded-2xl p-5 border border-border/50 hover:border-border transition-all duration-300 overflow-hidden",
+        onClick && 'cursor-pointer'
+      )}
       onClick={onClick}
     >
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors.bg}`}>
-          <Icon className={`w-6 h-6 ${colors.text}`} />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+      <div className="relative flex items-center gap-4">
+        <div className={cn("w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform", gradient)}>
+          {Icon && <Icon className="w-6 h-6 text-white" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-500 truncate">{label}</p>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-gray-900">{value}</span>
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium truncate">{label}</p>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-2xl font-bold text-foreground">{value}</span>
           </div>
-          {subtitle && (
-            <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
-          )}
+          {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
       </div>
     </div>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Shield shape -->
+  <path d="M32 4L8 14v18c0 14.4 10.24 27.84 24 32 13.76-4.16 24-17.6 24-32V14L32 4z" fill="url(#shield-gradient)" opacity="0.15"/>
+  <path d="M32 4L8 14v18c0 14.4 10.24 27.84 24 32 13.76-4.16 24-17.6 24-32V14L32 4z" stroke="url(#shield-stroke)" stroke-width="2" fill="none"/>
+
+  <!-- Leaf / plant -->
+  <path d="M32 48V28" stroke="url(#stem-gradient)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M32 28c-6-8-16-8-16-8s2 10 10 14" fill="url(#leaf-left)" opacity="0.9"/>
+  <path d="M32 28c6-8 16-8 16-8s-2 10-10 14" fill="url(#leaf-right)" opacity="0.9"/>
+
+  <!-- Eye / surveillance dot -->
+  <circle cx="32" cy="22" r="5" fill="url(#eye-gradient)"/>
+  <circle cx="32" cy="22" r="2" fill="white" opacity="0.9"/>
+
+  <!-- Signal waves -->
+  <path d="M22 16a14 14 0 0 1 20 0" stroke="url(#wave-gradient)" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <path d="M25 13a10 10 0 0 1 14 0" stroke="url(#wave-gradient)" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.4"/>
+
+  <defs>
+    <linearGradient id="shield-gradient" x1="8" y1="4" x2="56" y2="64">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <linearGradient id="shield-stroke" x1="8" y1="4" x2="56" y2="64">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <linearGradient id="stem-gradient" x1="32" y1="28" x2="32" y2="48">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#92400e"/>
+    </linearGradient>
+    <linearGradient id="leaf-left" x1="16" y1="20" x2="32" y2="34">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="leaf-right" x1="48" y1="20" x2="32" y2="34">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <linearGradient id="eye-gradient" x1="27" y1="17" x2="37" y2="27">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <linearGradient id="wave-gradient" x1="22" y1="13" x2="42" y2="16">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+</svg>
