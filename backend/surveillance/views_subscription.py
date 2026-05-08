@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from .models_subscription import Subscription, Payment
 from .serializers_subscription import (
     SubscriptionSerializer, PaymentSerializer, 

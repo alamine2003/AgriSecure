@@ -15,7 +15,7 @@ from users.permissions import (
 )
 
 
-class ReportViewSet(viewsets.ViewSet):
+class PDFReportGeneratorViewSet(viewsets.ViewSet):
     """ViewSet pour la génération de rapports PDF"""
     
     def get_permissions(self):

@@ -76,7 +76,7 @@ class NotificationTemplateViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         """Seul les maintenanciers peuvent gérer les templates"""
-        return [IsAuthenticated(), IsMaintenancier(), MustChangePasswordPermission()]
+        return [IsAuthenticated(), MustChangePasswordPermission(), IsMaintenancier()]
 
     @action(detail=False, methods=['POST'])
     def send_test(self, request):

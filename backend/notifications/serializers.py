@@ -57,14 +57,10 @@ class NotificationCreateSerializer(serializers.ModelSerializer):
         model = Notification
         fields = ['user', 'title', 'message', 'notification_type', 'priority']
 
-    def validate_users(self, value):
-        """Validation personnalisée pour les utilisateurs"""
+    def validate_user(self, value):
+        """Validation personnalisée pour l'utilisateur"""
         if not value:
-            raise serializers.ValidationError("Les utilisateurs sont requis.")
-        
-        if not isinstance(value, list):
-            value = [value]
-        
+            raise serializers.ValidationError("L'utilisateur est requis.")
         return value
 
 

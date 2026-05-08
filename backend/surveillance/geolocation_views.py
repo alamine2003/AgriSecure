@@ -109,7 +109,7 @@ class FieldPerimeterViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # Calculer le centre (moyenne des coordonnées)
+            # Calculer le centre (moyenne des coordonnées) — format [lng, lat]
             avg_lat = sum(point[1] for point in coords) / len(coords)
             avg_lng = sum(point[0] for point in coords) / len(coords)
             
