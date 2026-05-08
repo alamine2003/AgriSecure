@@ -125,12 +125,12 @@ class TechnicianViewSet(viewsets.ModelViewSet):
         
         stats_by_speciality = Technician.objects.values('speciality').annotate(
             count=Count('id'),
-            available_count=Count('id', filter=models.Q(is_available=True))
+            available_count=Count('id', filter=Q(is_available=True))
         ).order_by('speciality')
-        
+
         stats_by_region = Technician.objects.values('region').annotate(
             count=Count('id'),
-            available_count=Count('id', filter=models.Q(is_available=True))
+            available_count=Count('id', filter=Q(is_available=True))
         ).exclude(region__isnull=True).order_by('region')
         
         return Response({

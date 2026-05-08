@@ -122,8 +122,8 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         
         stats_by_plan = Subscription.objects.values('plan').annotate(
             count=Count('id'),
-            active_count=Count('id', filter=models.Q(status='ACTIVE')),
-            revenue=Sum('monthly_price', filter=models.Q(status='ACTIVE'))
+            active_count=Count('id', filter=Q(status='ACTIVE')),
+            revenue=Sum('monthly_price', filter=Q(status='ACTIVE'))
         ).order_by('plan')
         
         # Revenu mensuel total

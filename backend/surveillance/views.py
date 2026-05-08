@@ -1,6 +1,8 @@
+import os
 from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.http import Http404, StreamingHttpResponse
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,6 +11,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Avg, Q
+from minio import Minio
 from .models import Camera, Detection, Alert, InstallationAppointment, AgentRegistrationRequest, AuditLog
 from .serializers import CameraSerializer, DetectionSerializer, AlertSerializer, InstallationAppointmentSerializer, AgentRegistrationRequestSerializer, AuditLogSerializer
 from users.permissions import (
@@ -16,8 +19,6 @@ from users.permissions import (
     CanManageOwnCameras, CanManageOwnDetections, CanManageOwnAlerts,
     CanManageAppointments, CanManageTechnicians, MustChangePasswordPermission
 )
-from .models_technician import Technician
-from .serializers_technician import TechnicianSerializer
 
 class CameraViewSet(viewsets.ModelViewSet):
     serializer_class = CameraSerializer
@@ -87,7 +88,6 @@ class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
 
 class AlertViewSet(viewsets.ModelViewSet):
     serializer_class = AlertSerializer
-    queryset = Alert.objects.all()
 
     def get_permissions(self):
         return [IsAuthenticated(), MustChangePasswordPermission(), IsAgentAgricole()]
@@ -200,48 +200,6 @@ class InstallationAppointmentViewSet(viewsets.ModelViewSet):
             'agent_activated': not agent.is_active
         }, status=status.HTTP_200_OK)
 
-
-class TechnicianViewSet(viewsets.ModelViewSet):
-    """ViewSet pour la gestion des techniciens"""
-    serializer_class = TechnicianSerializer
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ["speciality", "region", "availability"]
-    search_fields = ["user__first_name", "user__last_name", "user__email", "speciality", "region"]
-    ordering_fields = ["created_at", "user__first_name"]
-
-    def get_permissions(self):
-        return [IsAuthenticated(), MustChangePasswordPermission(), CanManageTechnicians()]
-
-    def get_queryset(self):
-        return Technician.objects.select_related("user").all()
-
-    @action(detail=True, methods=['POST'])
-    def assign_appointment(self, request, pk=None):
-        """Assigner un rendez-vous à un technicien"""
-        technician = self.get_object()
-        appointment_id = request.data.get('appointment_id')
-        
-        if not appointment_id:
-            return Response(
-                {'error': 'ID de rendez-vous requis'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            appointment = InstallationAppointment.objects.get(id=appointment_id)
-            appointment.technician = technician
-            appointment.save(update_fields=['technician'])
-            
-            return Response({
-                'message': 'Rendez-vous assigné avec succès',
-                'appointment_id': str(appointment.id),
-                'technician_id': str(technician.id)
-            })
-        except InstallationAppointment.DoesNotExist:
-            return Response(
-                {'error': 'Rendez-vous non trouvé'},
-                status=status.HTTP_404_NOT_FOUND
-            )
 
 
 class MaintenancierDashboardViewSet(viewsets.ViewSet):

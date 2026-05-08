@@ -2,10 +2,10 @@ from django.urls import path, include
 from core.router import SafeFormatSuffixRouter
 from .views import (
     CameraViewSet, DetectionViewSet, AlertViewSet,
-    InstallationAppointmentViewSet, TechnicianViewSet,
-    MaintenancierDashboardViewSet, AgentDashboardViewSet,
+    InstallationAppointmentViewSet,
     AgentRegistrationRequestViewSet, AuditLogViewSet, MaintenancierStatsViewSet
 )
+from .views_technician import TechnicianViewSet
 from .geolocation_views import FieldPerimeterViewSet
 from .views_subscription import SubscriptionViewSet, PaymentViewSet
 from .views_dashboard import DashboardViewSet

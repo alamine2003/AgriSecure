@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from django.db import models
 from django.http import JsonResponse, HttpResponse
 from django.utils.dateparse import parse_date
 from rest_framework import viewsets, status
