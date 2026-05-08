@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 services:
   nginx:
     build: ./nginx
