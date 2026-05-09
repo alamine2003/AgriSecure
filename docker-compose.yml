@@ -86,6 +86,13 @@ services:
   frontend:
     build:
       context: ./frontend
+      target: build-stage
+    command: npm run dev
+    environment:
+      - VITE_USE_MOCK=false
+      - VITE_API_URL=/api/v1
+      - VITE_WS_URL=ws://localhost
+      - VITE_DEV_THROUGH_NGINX=true
     networks:
       - surveillance_net
     restart: unless-stopped
@@ -123,13 +130,13 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-RedisPass456!}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-RedisPass456!}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

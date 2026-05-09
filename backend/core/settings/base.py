@@ -108,19 +108,28 @@ SPECTACULAR_SETTINGS = {
 }
 
 # Celery Setup
-CELERY_BROKER_URL = f"redis://:{os.getenv('REDIS_PASSWORD')}@{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', 6379)}/0"
+_redis_host = os.getenv('REDIS_HOST', 'redis')
+_redis_port = os.getenv('REDIS_PORT', 6379)
+_redis_password = os.getenv('REDIS_PASSWORD', '')
+if _redis_password:
+    CELERY_BROKER_URL = f"redis://:{_redis_password}@{_redis_host}:{_redis_port}/0"
+else:
+    CELERY_BROKER_URL = f"redis://{_redis_host}:{_redis_port}/0"
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
 # Channels
+_channel_config = {
+    "hosts": [(_redis_host, int(_redis_port))],
+}
+if _redis_password:
+    _channel_config["password"] = _redis_password
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [(os.getenv('REDIS_HOST', 'redis'), int(os.getenv('REDIS_PORT', 6379)))],
-            "password": os.getenv('REDIS_PASSWORD'),
-        },
+        "CONFIG": _channel_config,
     },
 }
 
