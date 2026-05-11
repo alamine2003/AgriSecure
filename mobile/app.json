@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "AgriWatch",
+    "slug": "agriwatch",
+    "scheme": "agriwatch",
+    "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-router"
+    ],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#061a0d"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.agriwatch.app"
+    },
+    "android": {
+      "package": "com.agriwatch.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#061a0d"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "df7cb63e-a3bf-4bf9-8834-c6549859334c"
+      }
+    },
+    "owner": "alaminedevops"
+  }
+}
