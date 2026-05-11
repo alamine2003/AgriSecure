@@ -29,27 +29,39 @@ export default function LoginScreen() {
     if (!email.trim() || !password.trim()) { setError('Veuillez remplir tous les champs.'); return; }
     setLoading(true); setError('');
     const normalizedEmail = email.trim().toLowerCase();
-    try {
-      if (USE_MOCK) {
-        if (normalizedEmail === MOCK_CREDENTIALS.email && password === MOCK_CREDENTIALS.password) {
-          await login('mock-access-token', 'mock-refresh-token', MOCK_USER);
-          router.replace('/(app)/dashboard');
-        } else {
-          setError('Identifiants incorrects. Utilisez : agent@agriwatch.sn / agent123');
-        }
-        return;
+
+    // Mode mock forcé (build démo)
+    if (USE_MOCK) {
+      if (normalizedEmail === MOCK_CREDENTIALS.email && password === MOCK_CREDENTIALS.password) {
+        await login('mock-access-token', 'mock-refresh-token', MOCK_USER);
+        router.replace('/(app)/dashboard');
+      } else {
+        setError('Identifiants incorrects. Utilisez : agent@agriwatch.sn / agent123');
       }
-      const res  = await fetch(`${API_BASE_URL}/v1/auth/login/`, {
+      setLoading(false);
+      return;
+    }
+
+    // Connexion réelle avec auto-fallback démo si serveur injoignable
+    try {
+      const res = await fetch(`${API_BASE_URL}/v1/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: normalizedEmail, password }),
+        signal: AbortSignal.timeout(6000),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.detail || data.non_field_errors?.[0] || 'Identifiants incorrects.'); return; }
       await login(data.access, data.refresh, data.user);
       router.replace(data.user.must_change_password ? '/(auth)/change-password' : '/(app)/dashboard');
     } catch {
-      setError('Impossible de contacter le serveur. Vérifiez votre connexion.');
+      // Serveur injoignable → basculer sur le compte démo automatiquement
+      if (normalizedEmail === MOCK_CREDENTIALS.email && password === MOCK_CREDENTIALS.password) {
+        await login('mock-access-token', 'mock-refresh-token', MOCK_USER);
+        router.replace('/(app)/dashboard');
+      } else {
+        setError('Serveur injoignable. En démo : agent@agriwatch.sn / agent123');
+      }
     } finally { setLoading(false); }
   }
 
