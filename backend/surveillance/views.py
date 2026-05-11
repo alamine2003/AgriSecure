@@ -173,6 +173,21 @@ class InstallationAppointmentViewSet(viewsets.ModelViewSet):
                 'location': camera.location
             })
 
+        # Notification agent
+        try:
+            from notifications.services import create_notification
+            create_notification(
+                user=agent,
+                title="Installation terminée",
+                message=f"Votre installation à {appointment.locality} est terminée. {len(cameras_created)} caméra(s) activée(s).",
+                notification_type='SUCCESS',
+                priority='HIGH',
+                content_type='appointment',
+                object_id=str(appointment.id),
+            )
+        except Exception:
+            pass
+
         # Log d'audit
         AuditLog.objects.create(
             user=request.user,
@@ -278,7 +293,11 @@ class AgentRegistrationRequestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.request.user.is_authenticated and self.request.user.role == 'maintenancier':
-            return AgentRegistrationRequest.objects.all()
+            qs = AgentRegistrationRequest.objects.all()
+            show_archived = self.request.query_params.get('archived', 'false').lower() == 'true'
+            if not show_archived:
+                qs = qs.filter(is_archived=False)
+            return qs
         return AgentRegistrationRequest.objects.none()
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsMaintenancier])
@@ -318,6 +337,14 @@ class AgentRegistrationRequestViewSet(viewsets.ModelViewSet):
             registration_request.created_user = user
             registration_request.save()
 
+            # Notification in-app
+            try:
+                from notifications.services import notify_registration_approved, notify_appointment_scheduled
+                notify_registration_approved(user)
+                notify_appointment_scheduled(user, appointment)
+            except Exception:
+                pass
+
             return Response({
                 'status': 'success',
                 'message': 'Demande approuvée et compte créé',
@@ -352,6 +379,19 @@ class AgentRegistrationRequestViewSet(viewsets.ModelViewSet):
             'status': 'success',
             'message': 'Demande rejetée'
         })
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsMaintenancier])
+    def archive(self, request, pk=None):
+        """Archiver une demande traitée"""
+        registration_request = self.get_object()
+        if registration_request.status == 'PENDING':
+            return Response(
+                {'error': 'Seules les demandes traitées peuvent être archivées'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        registration_request.is_archived = True
+        registration_request.save(update_fields=['is_archived'])
+        return Response({'status': 'success', 'message': 'Demande archivée'})
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):

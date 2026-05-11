@@ -1,12 +1,13 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom"
 import {
   BarChart3, CalendarClock, Camera, FileText, LogOut, Shield, Users,
-  UserPlus, Search, Bell, Map, ChevronRight, Activity
+  UserPlus, Search, Map, ChevronRight, Archive, Inbox, Settings
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import logoSvg from "@/assets/logo.svg"
+import NotificationBell from "@/components/NotificationBell"
 
 function SidebarItem({ to, icon: Icon, label }) {
   return (
@@ -45,6 +46,9 @@ const SECTION_TITLES = {
   "/agent/perimeter": ["Périmètres", "Définition cartographique"],
   "/surveillance": ["Surveillance Live", "Flux vidéo en direct"],
   "/reports": ["Rapports", "Historique et analyses"],
+  "/agent/inbox": ["Boîte de réception", "Vos notifications"],
+  "/agent/archive": ["Archives", "Historique des détections et alertes"],
+  "/settings": ["Paramètres", "Profil et préférences"],
 }
 
 export default function AppLayout() {
@@ -93,11 +97,14 @@ export default function AppLayout() {
                 <SidebarItem to="/agent/perimeter" icon={Map} label="Périmètres" />
                 <SidebarItem to="/surveillance" icon={Camera} label="Surveillance" />
                 <SidebarItem to="/reports" icon={FileText} label="Rapports" />
+                <SidebarItem to="/agent/inbox" icon={Inbox} label="Notifications" />
+                <SidebarItem to="/agent/archive" icon={Archive} label="Archives" />
               </>
             )}
 
             <div className="pt-4 mt-4 border-t border-border/50">
               <p className="px-3 text-[10px] uppercase tracking-widest text-muted-foreground/60 mb-2 font-medium">Système</p>
+              <SidebarItem to="/settings" icon={Settings} label="Paramètres" />
               <SidebarItem to="/admin/" icon={Shield} label="Admin Django" />
             </div>
           </nav>
@@ -147,10 +154,7 @@ export default function AppLayout() {
                     className="pl-10 pr-4 py-2 rounded-xl bg-muted/50 border border-border/50 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/30 transition-all placeholder:text-muted-foreground/60"
                   />
                 </div>
-                <button className="relative p-2.5 rounded-xl bg-muted/50 border border-border/50 hover:border-primary/30 transition-colors">
-                  <Bell className="w-[18px] h-[18px] text-muted-foreground" />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive ring-2 ring-background" />
-                </button>
+                <NotificationBell />
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-amber-500/20">
                   {initial}
                 </div>

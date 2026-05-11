@@ -141,11 +141,9 @@ export default function AgentDashboardModular() {
       name: newPerimeter.name || "Nouveau Périmètre",
       description: newPerimeter.description || "",
       coordinates: mapData.coordinates,
-      area_hectares: mapData.area,
-      center_latitude: mapData.center.lat,
-      center_longitude: mapData.center.lng,
-      commune: mapData.commune || "",
-      region: mapData.region || "",
+      area_hectares: mapData.area_hectares ?? mapData.area,
+      center_lat: mapData.center?.lat,
+      center_lng: mapData.center?.lng,
     }
 
     if (editingPerimeter) {

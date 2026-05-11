@@ -128,6 +128,8 @@ class NotificationChannelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Un utilisateur ne voit que ses propres canaux"""
+        if getattr(self, 'swagger_fake_view', False):
+            return NotificationChannel.objects.none()
         return NotificationChannel.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):

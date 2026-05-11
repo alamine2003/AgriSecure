@@ -14,25 +14,37 @@ class FieldPerimeterSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'agent', 'area_hectares', 'created_at', 'updated_at']
 
     def validate_coordinates(self, value):
-        """Validation des coordonnées GPS"""
+        """Validation et normalisation des coordonnées GPS.
+
+        Accepte [lat, lng] (tableaux) ET {lat, lng} (objets frontend).
+        Normalise tout en [[lat, lng]] pour le stockage.
+        """
         if not isinstance(value, list):
-            raise serializers.ValidationError("Les coordonnées doivent être une liste de points [lat, lng]")
-        
-        if len(value) < 3:
-            raise serializers.ValidationError("Un périmètre doit avoir au moins 3 points")
-        
-        for point in value:
-            if not isinstance(point, list) or len(point) != 2:
-                raise serializers.ValidationError("Chaque point doit être une liste [latitude, longitude]")
-            
-            lat, lng = point
+            raise serializers.ValidationError("Les coordonnées doivent être une liste de points")
+
+        normalized = []
+        for i, point in enumerate(value):
+            if isinstance(point, dict) and 'lat' in point and 'lng' in point:
+                lat, lng = point['lat'], point['lng']
+            elif isinstance(point, (list, tuple)) and len(point) == 2:
+                lat, lng = point[0], point[1]
+            else:
+                raise serializers.ValidationError(f"Point {i} invalide : format attendu [lat, lng] ou {{lat, lng}}")
+
             if not isinstance(lat, (int, float)) or not isinstance(lng, (int, float)):
-                raise serializers.ValidationError("Les coordonnées doivent être numériques")
-            
-            if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
-                raise serializers.ValidationError("Coordonnées GPS invalides")
-        
-        return value
+                raise serializers.ValidationError(f"Point {i} : les coordonnées doivent être numériques")
+
+            if not (-90 <= lat <= 90):
+                raise serializers.ValidationError(f"Latitude {lat} hors limites [-90, 90]")
+            if not (-180 <= lng <= 180):
+                raise serializers.ValidationError(f"Longitude {lng} hors limites [-180, 180]")
+
+            normalized.append([lat, lng])
+
+        if len(normalized) < 3:
+            raise serializers.ValidationError("Un périmètre doit avoir au moins 3 points")
+
+        return normalized
 
     def create(self, validated_data):
         """Création d'un périmètre avec calcul automatique"""

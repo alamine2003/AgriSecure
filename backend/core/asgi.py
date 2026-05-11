@@ -8,11 +8,13 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', os.getenv('DJANGO_SETTINGS_MODUL
 django.setup()
 
 from camera.consumer import CameraConsumer
+from notifications.consumer import NotificationConsumer
 from core.ws_jwt_middleware import JwtAuthMiddleware
 
 # Routeurs WebSocket
 websocket_urlpatterns = [
     path('ws/surveillance/<uuid:camera_id>/', CameraConsumer.as_asgi()),
+    path('ws/notifications/', NotificationConsumer.as_asgi()),
 ]
 
 application = ProtocolTypeRouter({

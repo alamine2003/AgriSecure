@@ -56,9 +56,14 @@ class ChangePasswordView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         user = request.user
 
-        if not user.check_password(serializer.validated_data['old_password']):
-            return Response({"old_password": ["Ancien mot de passe incorrect."]}, 
-                            status=status.HTTP_400_BAD_REQUEST)
+        current = (serializer.validated_data.get('old_password')
+                   or serializer.validated_data.get('current_password', ''))
+        if not user.check_password(current):
+            return Response(
+                {"current_password": ["Mot de passe actuel incorrect."],
+                 "old_password": ["Ancien mot de passe incorrect."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         user.set_password(serializer.validated_data['new_password'])
         user.must_change_password = False
@@ -66,9 +71,13 @@ class ChangePasswordView(generics.GenericAPIView):
         update_session_auth_hash(request, user)
         return Response({"status": "Mot de passe changé avec succès"}, status=status.HTTP_200_OK)
 
-class ProfileView(generics.RetrieveAPIView):
+class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
         return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return super().update(request, *args, **kwargs)

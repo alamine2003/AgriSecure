@@ -15,6 +15,9 @@ import RegistrationRequests from './pages/RegistrationRequests';
 import InstallationAppointments from './pages/InstallationAppointments';
 import Surveillance from './pages/Surveillance';
 import Reports from './pages/Reports';
+import AgentInbox from './pages/AgentInbox';
+import ArchivePage from './pages/ArchivePage';
+import SettingsPage from './pages/SettingsPage';
 
 function App() {
   return (
@@ -112,6 +115,23 @@ function App() {
               </RequireRole>
             }
           />
+          <Route
+            path="/agent/inbox"
+            element={
+              <RequireRole role="agent_agricole">
+                <AgentInbox />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/agent/archive"
+            element={
+              <RequireRole role="agent_agricole">
+                <ArchivePage />
+              </RequireRole>
+            }
+          />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -152,6 +152,7 @@ class AgentRegistrationRequest(models.Model):
     farm_size = models.CharField(max_length=100, blank=True, help_text="Superficie de l'exploitation")
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="PENDING")
     rejection_reason = models.TextField(blank=True, default="")
+    is_archived = models.BooleanField(default=False, help_text="Demande archivée (masquée de la liste principale)")
     created_user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_from_request')
     created_at = models.DateTimeField(auto_now_add=True)
     processed_at = models.DateTimeField(null=True, blank=True)
