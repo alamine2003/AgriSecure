@@ -17,6 +17,10 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
       - CELERY_RESULT_BACKEND=${CELERY_BROKER_URL:-redis://redis:6379/0}
+    devices:
+      - /dev/video0:/dev/video0
+    group_add:
+      - "${VIDEO_GID:-44}"
     ports:
       - "8000:8000"
     depends_on:
