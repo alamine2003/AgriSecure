@@ -19,7 +19,7 @@
       "env": {
         "EXPO_PUBLIC_API_HOST": "172.16.10.242",
         "EXPO_PUBLIC_USE_HTTPS": "false",
-        "EXPO_PUBLIC_USE_MOCK": "true"
+        "EXPO_PUBLIC_USE_MOCK": "false"
       }
     },
     "production": {
