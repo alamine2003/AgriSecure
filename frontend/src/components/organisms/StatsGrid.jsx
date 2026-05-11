@@ -12,7 +12,7 @@ export const StatsGrid = ({ stats }) => {
     },
     {
       label: 'Surface Totale',
-      value: `${stats.totalArea.toFixed(1)} ha`,
+      value: `${parseFloat(stats.totalArea || 0).toFixed(1)} ha`,
       subtitle: `${stats.perimeterCount} périmètre(s)`,
       icon: Map,
       gradient: 'from-sky-500 to-blue-600'

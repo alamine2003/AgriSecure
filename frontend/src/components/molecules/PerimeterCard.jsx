@@ -22,7 +22,7 @@ export const PerimeterCard = ({ perimeter, onEdit, onDelete }) => {
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Surface</span>
           <span className="font-semibold text-foreground">
-            {perimeter.area_hectares?.toFixed(2) || '0.00'} ha
+            {parseFloat(perimeter.area_hectares || 0).toFixed(2)} ha
           </span>
         </div>
         <div className="flex items-center justify-between text-xs">

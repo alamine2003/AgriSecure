@@ -127,7 +127,7 @@ export default function AgentDashboardModular() {
   const stats = {
     activeCameras: cameras.filter(c => c.is_active).length,
     totalCameras: cameras.length,
-    totalArea: perimeters.reduce((acc, p) => acc + (p.area_hectares || 0), 0),
+    totalArea: perimeters.reduce((acc, p) => acc + parseFloat(p.area_hectares || 0), 0),
     perimeterCount: perimeters.length,
     unreadAlerts: alerts.filter(a => !a.is_read).length,
     totalAlerts: alerts.length,

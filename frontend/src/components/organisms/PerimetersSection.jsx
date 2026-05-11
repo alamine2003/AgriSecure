@@ -46,7 +46,7 @@ const PerimeterMiniMap = ({ perimeters }) => {
               }}
             >
               <Tooltip>
-                {perimeter.name} - {perimeter.area_hectares?.toFixed(2) || '?'} ha
+                {perimeter.name} - {parseFloat(perimeter.area_hectares || 0).toFixed(2)} ha
               </Tooltip>
             </Polygon>
           )
