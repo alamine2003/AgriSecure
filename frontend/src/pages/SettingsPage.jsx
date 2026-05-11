@@ -50,6 +50,7 @@ export default function SettingsPage() {
     mutationFn: (data) => client.post('/auth/change-password/', {
       old_password: data.current_password,
       new_password: data.new_password,
+      confirm_password: data.confirm,
     }),
     onSuccess: () => {
       notify.success('Mot de passe modifié', 'Votre mot de passe a été mis à jour')
