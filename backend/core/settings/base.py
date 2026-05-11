@@ -120,16 +120,17 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
 # Channels
-_channel_config = {
-    "hosts": [(_redis_host, int(_redis_port))],
-}
 if _redis_password:
-    _channel_config["password"] = _redis_password
+    _redis_url = f"redis://:{_redis_password}@{_redis_host}:{_redis_port}/1"
+else:
+    _redis_url = f"redis://{_redis_host}:{_redis_port}/1"
 
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": _channel_config,
+        "CONFIG": {
+            "hosts": [_redis_url],
+        },
     },
 }
 
