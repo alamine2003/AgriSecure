@@ -36,7 +36,7 @@ export const MOCK_ALERTS = [
     detection_detail: { label: 'Vache', camera_name: 'Caméra Sud', danger_level: 'MEDIUM' as const, confidence: 0.87, detected_at: ago(65) },
   },
   {
-    id: 'al-3', message: 'Passage d'un chien détecté à l'entrée principale.', is_read: true, resolved_at: ago(30), created_at: ago(180),
+    id: 'al-3', message: "Passage d'un chien détecté à l'entrée principale.", is_read: true, resolved_at: ago(30), created_at: ago(180),
     detection_detail: { label: 'Chien', camera_name: 'Entrée principale', danger_level: 'LOW' as const, confidence: 0.79, detected_at: ago(180) },
   },
   {
