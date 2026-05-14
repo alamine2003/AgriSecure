@@ -21,7 +21,7 @@ def encode_frame_to_base64(frame) -> Optional[str]:
         String Base64 ou None en cas d'erreur
     """
     try:
-        success, buffer = cv2.imencode('.jpg', frame)
+        success, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
         if not success:
             logger.error("Échec encodage JPEG")
             return None

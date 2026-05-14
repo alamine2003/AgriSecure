@@ -1,5 +1,6 @@
 import cv2
 import base64
+import queue
 import time
 import threading
 import os
@@ -11,8 +12,8 @@ from channels.layers import get_channel_layer
 from ai_engine.detector import YOLODetector
 from ai_engine.tasks import save_detection_task
 from core.exceptions import (
-    CameraInitializationError, 
-    CameraStreamError, 
+    CameraInitializationError,
+    CameraStreamError,
     CameraNotFoundError,
     AIEngineException
 )
@@ -28,18 +29,56 @@ class CameraCapture(threading.Thread):
         self.running = False
         self.channel_layer = get_channel_layer()
         self.detector = YOLODetector()
+        # Queue entre le thread de capture et le thread YOLO (maxsize=2 : on drop les frames en surplus)
+        self._yolo_queue: queue.Queue = queue.Queue(maxsize=2)
+        self._last_detections: list = []
+        self._yolo_thread = threading.Thread(target=self._yolo_worker, daemon=True)
+
+    def _yolo_worker(self):
+        """Thread dédié à l'inférence YOLO — ne bloque plus la capture."""
+        while self.running:
+            try:
+                frame = self._yolo_queue.get(timeout=1.0)
+                detections = self.detector.analyze(frame)
+                self._last_detections = detections
+
+                # Déléguer la sauvegarde des détections critiques à Celery
+                for d in detections:
+                    if d['danger_level'] in ['HIGH', 'MEDIUM']:
+                        try:
+                            save_detection_task.delay(
+                                str(self.camera_id),
+                                d['label'],
+                                d['confidence'],
+                                d['danger_level'],
+                                d['bbox'],
+                                None,
+                            )
+                        except Exception as e:
+                            logger.error(f"Erreur envoi tâche Celery caméra {self.camera_id}: {e}")
+            except queue.Empty:
+                continue
+            except Exception as e:
+                logger.error(f"Erreur thread YOLO caméra {self.camera_id}: {e}")
 
     def run(self):
         self.running = True
+        self._yolo_thread.start()
         logger.info(f"Démarrage de la capture pour la caméra {self.camera_id} (index {self.camera_index})")
         
         cap = None
         try:
             # Tentative d'ouverture de la caméra
             cap = cv2.VideoCapture(self.camera_index)
-            
+
             if not cap.isOpened():
                 raise CameraInitializationError(f"Impossible d'ouvrir la caméra {self.camera_index}")
+
+            # Réduire la latence : buffer minimal + résolution fixe
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_FPS, self.fps)
 
             wait_time = 1.0 / self.fps
             consecutive_read_failures = 0
@@ -60,47 +99,31 @@ class CameraCapture(threading.Thread):
                         continue
                     
                     consecutive_read_failures = 0  # Reset counter on successful read
-                    
+
                 except cv2.error as e:
                     raise CameraStreamError(f"Erreur OpenCV lors de la lecture caméra {self.camera_id}: {e}")
-                
-                # Analyse IA avec gestion d'erreurs spécifique
+
+                # Pousser la frame dans la queue YOLO sans bloquer le stream
                 try:
-                    detections = self.detector.analyze(frame)
-                except Exception as e:
-                    logger.error(f"Erreur lors de l'analyse IA pour caméra {self.camera_id}: {e}")
-                    detections = []  # Continuer sans détections plutôt que de planter
+                    self._yolo_queue.put_nowait(frame.copy())
+                except queue.Full:
+                    pass  # Le thread YOLO est occupé, on garde les dernières détections connues
 
                 try:
-                    _, buffer = cv2.imencode('.jpg', frame)
+                    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
                     frame_b64 = base64.b64encode(buffer).decode('utf-8')
                 except cv2.error as e:
                     logger.error(f"Erreur encodage frame caméra {self.camera_id}: {e}")
                     continue  # Passer à la frame suivante
-                
-                # Envoi des détections critiques à Celery pour sauvegarde/alerte
-                try:
-                    for d in detections:
-                        if d['danger_level'] in ['HIGH', 'MEDIUM']:
-                            save_detection_task.delay(
-                                str(self.camera_id), 
-                                d['label'], 
-                                d['confidence'], 
-                                d['danger_level'], 
-                                d['bbox'],
-                                frame_b64 if d['danger_level'] == 'HIGH' else None
-                            )
-                except Exception as e:
-                    logger.error(f"Erreur envoi tâche Celery pour caméra {self.camera_id}: {e}")
 
-                # Diffusion via Channels
+                # Diffusion immédiate avec les dernières détections connues (pas d'attente YOLO)
                 try:
                     async_to_sync(self.channel_layer.group_send)(
                         f'camera_{self.camera_id}',
                         {
                             'type': 'camera_frame',
                             'frame_b64': f"data:image/jpeg;base64,{frame_b64}",
-                            'detections': detections,
+                            'detections': self._last_detections,
                             'timestamp': datetime.now().isoformat()
                         }
                     )

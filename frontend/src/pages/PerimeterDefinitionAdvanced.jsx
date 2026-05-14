@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import client from "../api/client"
+import { normalizePerimeter } from "../api/normalizers"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import {
   Map, MapPin, Trash2, Edit, Navigation, Home, Plus, Square
@@ -22,7 +23,8 @@ export default function PerimeterDefinitionAdvanced() {
     queryKey: ["perimeters"],
     queryFn: async () => {
       const res = await client.get("/surveillance/perimeters/")
-      return Array.isArray(res.data) ? res.data : res.data?.results || []
+      const raw = Array.isArray(res.data) ? res.data : res.data?.results || []
+      return raw.map(normalizePerimeter)
     },
     refetchInterval: 30000,
   })
@@ -33,9 +35,8 @@ export default function PerimeterDefinitionAdvanced() {
         name: data.name,
         description: data.description || "",
         coordinates: data.coordinates,
-        center_lat: data.center.lat,
-        center_lng: data.center.lng,
-        area_hectares: data.area_hectares
+        center_lat: data.center?.lat != null ? parseFloat(data.center.lat.toFixed(7)) : null,
+        center_lng: data.center?.lng != null ? parseFloat(data.center.lng.toFixed(7)) : null,
       }
       const res = await client.post("/surveillance/perimeters/", payload)
       return res.data
@@ -48,7 +49,10 @@ export default function PerimeterDefinitionAdvanced() {
       await perimetersQuery.refetch()
     },
     onError: (err) => {
-      notify.error("Erreur", err?.response?.data?.detail || "Impossible de créer le périmètre")
+      const d = err?.response?.data
+      const msg = d?.detail || d?.coordinates?.[0] || d?.center_lat?.[0]
+        || (d ? JSON.stringify(d) : null) || "Impossible de créer le périmètre"
+      notify.error("Erreur", msg)
     },
   })
 
@@ -58,9 +62,8 @@ export default function PerimeterDefinitionAdvanced() {
         name: data.name,
         description: data.description || "",
         coordinates: data.coordinates,
-        center_lat: data.center.lat,
-        center_lng: data.center.lng,
-        area_hectares: data.area_hectares
+        center_lat: data.center?.lat != null ? parseFloat(data.center.lat.toFixed(7)) : null,
+        center_lng: data.center?.lng != null ? parseFloat(data.center.lng.toFixed(7)) : null,
       }
       const res = await client.patch(`/surveillance/perimeters/${id}/`, payload)
       return res.data
@@ -72,7 +75,10 @@ export default function PerimeterDefinitionAdvanced() {
       await perimetersQuery.refetch()
     },
     onError: (err) => {
-      notify.error("Erreur", err?.response?.data?.detail || "Impossible de mettre à jour")
+      const d = err?.response?.data
+      const msg = d?.detail || d?.coordinates?.[0] || d?.center_lat?.[0] || d?.center_lng?.[0]
+        || (d ? JSON.stringify(d) : null) || "Impossible de mettre à jour"
+      notify.error("Erreur", msg)
     },
   })
 
@@ -124,6 +130,12 @@ export default function PerimeterDefinitionAdvanced() {
     setEditingPerimeter(perimeter)
     setFormData({ name: perimeter.name, description: perimeter.description || "" })
     setShowCreateForm(false)
+    setPerimeterData({
+      coordinates: perimeter.coordinates,
+      center: { lat: perimeter.center_lat, lng: perimeter.center_lng },
+      area_hectares: perimeter.area_hectares,
+      nearest_commune: null,
+    })
   }
 
   const cancelEdit = () => {
@@ -140,7 +152,7 @@ export default function PerimeterDefinitionAdvanced() {
   }
 
   const perimeters = perimetersQuery.data || []
-  const totalArea = perimeters.reduce((sum, p) => sum + (p.area_hectares || 0), 0)
+  const totalArea = perimeters.reduce((sum, p) => sum + (parseFloat(p.area_hectares) || 0), 0)
   const totalPoints = perimeters.reduce((sum, p) => sum + (p.coordinates?.length || 0), 0)
 
   return (
@@ -212,7 +224,9 @@ export default function PerimeterDefinitionAdvanced() {
           <div className="p-6 space-y-4">
             <FieldMapDrawer
               onSave={handleMapSave}
-              initialPolygon={editingPerimeter?.coordinates || []}
+              initialPolygon={(editingPerimeter?.coordinates || []).map(p =>
+                Array.isArray(p) ? { lat: p[0], lng: p[1] } : p
+              )}
               initialCenter={
                 editingPerimeter
                   ? { lat: editingPerimeter.center_lat, lng: editingPerimeter.center_lng }

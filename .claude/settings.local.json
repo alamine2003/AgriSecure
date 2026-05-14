@@ -17,7 +17,17 @@
       "Bash(Get-ChildItem -Recurse -Filter \"*.bat\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "PowerShell(head *)",
-      "PowerShell(Get-ChildItem *)"
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(git *)",
+      "PowerShell(docker exec alamine_bouba_project_v0-backend-1 *)",
+      "PowerShell(docker restart alamine_bouba_project_v0-frontend-1 *)",
+      "PowerShell(docker exec alamine_bouba_project_v0-frontend-1 *)",
+      "PowerShell(docker cp *)",
+      "PowerShell($repo = \"C:\\\\Users\\\\7MAKSACOD PC\\\\Downloads\\\\dossiers soutenance\\\\Alamine_Bouba_Project_v0\")",
+      "PowerShell(git -C $repo diff --cached --stat 2>&1)",
+      "PowerShell(git -C $repo remote add origin https://github.com/alamine2003/AgriSecure.git)",
+      "PowerShell(git -C $repo push -u origin develop 2>&1)",
+      "Bash(Test-Path *)"
     ]
   }
 }

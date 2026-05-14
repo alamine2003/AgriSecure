@@ -58,8 +58,9 @@ class YOLODetector:
         if self.cache:
             try:
                 frame_shape = frame_numpy.shape
-                frame_bytes_sample = frame_numpy.tobytes()
-                
+                # Échantillon spatial (1 pixel sur 20) au lieu du tobytes() complet (~6 MB pour 1080p)
+                frame_bytes_sample = frame_numpy[::20, ::20].tobytes()
+
                 cached_detections = self.cache.get_cached_detections(frame_shape, frame_bytes_sample)
                 if cached_detections:
                     logger.debug("Utilisation des détections YOLO depuis le cache")

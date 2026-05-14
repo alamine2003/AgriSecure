@@ -72,7 +72,8 @@ export const FieldMapDrawer = ({
     // Si polygone initial, l'afficher
     if (initialPolygon.length > 0) {
       drawPolygon(map, initialPolygon)
-      const bounds = L.latLngBounds(initialPolygon.map(p => [p.lat, p.lng]))
+      const normPoly = initialPolygon.map(p => Array.isArray(p) ? { lat: p[0], lng: p[1] } : p)
+      const bounds = L.latLngBounds(normPoly.map(p => [p.lat, p.lng]))
       map.fitBounds(bounds, { padding: [50, 50] })
     }
 
@@ -119,23 +120,14 @@ export const FieldMapDrawer = ({
 
     if (points.length === 0) return
 
+    const normalized = points.map(p => Array.isArray(p) ? { lat: p[0], lng: p[1] } : p)
+
     // Dessiner points
-    points.forEach((point, index) => {
-      const marker = L.circleMarker([point.lat, point.lng], {
-        radius: 8,
-        fillColor: isEditing ? '#ef4444' : '#3b82f6',
-        color: '#fff',
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 0.8
-      }).addTo(map)
+    normalized.forEach((point, index) => {
+      let marker
 
-      marker.bindTooltip(`Point ${index + 1}`, { permanent: false, direction: 'top' })
-
-      // Si mode édition, rendre draggable
       if (isEditing) {
-        marker.dragging = new L.Handler.MarkerDrag(marker)
-        marker.dragging.enable()
+        marker = L.marker([point.lat, point.lng], { draggable: true }).addTo(map)
 
         marker.on('drag', (e) => {
           const newPoints = [...polygonPoints]
@@ -143,23 +135,31 @@ export const FieldMapDrawer = ({
           setPolygonPoints(newPoints)
         })
 
-        // Clic pour supprimer point
         marker.on('contextmenu', (e) => {
           e.originalEvent.preventDefault()
           if (polygonPoints.length > 3) {
-            const newPoints = polygonPoints.filter((_, i) => i !== index)
-            setPolygonPoints(newPoints)
+            setPolygonPoints(prev => prev.filter((_, i) => i !== index))
           }
         })
+      } else {
+        marker = L.circleMarker([point.lat, point.lng], {
+          radius: 8,
+          fillColor: '#3b82f6',
+          color: '#fff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.8
+        }).addTo(map)
       }
 
+      marker.bindTooltip(`Point ${index + 1}`, { permanent: false, direction: 'top' })
       markersRef.current.push(marker)
     })
 
     // Dessiner polygone si au moins 3 points
-    if (points.length >= 3) {
+    if (normalized.length >= 3) {
       const polygon = L.polygon(
-        points.map(p => [p.lat, p.lng]),
+        normalized.map(p => [p.lat, p.lng]),
         {
           color: '#10b981',
           fillColor: '#10b981',
@@ -169,10 +169,10 @@ export const FieldMapDrawer = ({
       ).addTo(map)
 
       polygonRef.current = polygon
-    } else if (points.length === 2) {
+    } else if (normalized.length === 2) {
       // Ligne si 2 points
       const polyline = L.polyline(
-        points.map(p => [p.lat, p.lng]),
+        normalized.map(p => [p.lat, p.lng]),
         { color: '#3b82f6', weight: 2 }
       ).addTo(map)
 

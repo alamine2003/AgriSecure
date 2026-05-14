@@ -39,15 +39,8 @@ class YOLOCache:
             self.redis_client = None
     
     def _generate_frame_hash(self, frame_shape: tuple, frame_bytes_sample: bytes) -> str:
-        """
-        Génère un hash unique pour une frame basé sur sa forme et un échantillon.
-        Permet d'identifier des frames similaires sans tout traiter.
-        """
-        # Prendre un échantillon de la frame (chaque 100ème pixel)
-        sample_step = max(1, len(frame_bytes_sample) // 1000)
-        sample = frame_bytes_sample[::sample_step]
-        
-        hash_input = f"{frame_shape}_{hashlib.md5(sample).hexdigest()}"
+        # frame_bytes_sample est déjà un échantillon spatial (~1/400ème de la frame)
+        hash_input = f"{frame_shape}_{hashlib.md5(frame_bytes_sample).hexdigest()}"
         return hashlib.sha256(hash_input.encode()).hexdigest()[:16]
     
     def get_cached_detections(self, frame_shape: tuple, frame_bytes_sample: bytes) -> Optional[List[Dict[str, Any]]]:
