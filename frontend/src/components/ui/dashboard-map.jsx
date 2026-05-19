@@ -1,35 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
-import { MapPin, Camera, Layers } from 'lucide-react'
-
-function loadLeaflet() {
-  return new Promise((resolve) => {
-    if (window.L) { resolve(window.L); return }
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-    document.head.appendChild(link)
-
-    const script = document.createElement('script')
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-    script.onload = () => resolve(window.L)
-    document.body.appendChild(script)
-  })
-}
+import { useEffect, useRef } from 'react'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import { MapPin } from 'lucide-react'
 
 export function DashboardMap({ perimeters = [], cameras = [], height = "400px", title, icon: Icon = MapPin }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
-  const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    loadLeaflet().then(() => setReady(true))
-  }, [])
-
-  useEffect(() => {
-    if (!ready || !mapRef.current) return
+    if (!mapRef.current) return
     if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null }
-
-    const L = window.L
 
     const map = L.map(mapRef.current, { zoomControl: false }).setView([14.5, -14.5], 7)
 
@@ -42,10 +22,10 @@ export function DashboardMap({ perimeters = [], cameras = [], height = "400px", 
 
     const bounds = []
 
-    // Draw perimeters
+    // Dessiner les périmètres
     perimeters.forEach((p) => {
       if (!p.coordinates || p.coordinates.length < 3) return
-      const latlngs = p.coordinates.map(c => [c.lat || c[0], c.lng || c[1]])
+      const latlngs = p.coordinates.map(c => [c.lat ?? c[0], c.lng ?? c[1]])
       bounds.push(...latlngs)
 
       const polygon = L.polygon(latlngs, {
@@ -63,7 +43,7 @@ export function DashboardMap({ perimeters = [], cameras = [], height = "400px", 
       `)
     })
 
-    // Draw cameras
+    // Dessiner les caméras
     cameras.forEach((cam) => {
       let lat, lng
       let linkedPerimeter = null
@@ -72,15 +52,14 @@ export function DashboardMap({ perimeters = [], cameras = [], height = "400px", 
 
       if (cam.perimeter) {
         linkedPerimeter = perimeters.find(p => p.id === cam.perimeter)
-        if (!lat && linkedPerimeter && linkedPerimeter.coordinates && linkedPerimeter.coordinates.length > 0) {
+        if (!lat && linkedPerimeter?.coordinates?.length > 0) {
           const coords = linkedPerimeter.coordinates
-          lat = coords.reduce((s, c) => s + (c.lat || c[0]), 0) / coords.length
-          lng = coords.reduce((s, c) => s + (c.lng || c[1]), 0) / coords.length
+          lat = coords.reduce((s, c) => s + (c.lat ?? c[0]), 0) / coords.length
+          lng = coords.reduce((s, c) => s + (c.lng ?? c[1]), 0) / coords.length
         }
       }
 
       if (!lat || !lng) return
-
       bounds.push([lat, lng])
 
       const isOnline = cam.status === 'online' || cam.is_active
@@ -104,16 +83,14 @@ export function DashboardMap({ perimeters = [], cameras = [], height = "400px", 
         </div>
       `)
 
-      // On click: zoom to linked perimeter
       marker.on('click', () => {
-        if (linkedPerimeter && linkedPerimeter.coordinates && linkedPerimeter.coordinates.length >= 3) {
-          const latlngs = linkedPerimeter.coordinates.map(c => [c.lat || c[0], c.lng || c[1]])
+        if (linkedPerimeter?.coordinates?.length >= 3) {
+          const latlngs = linkedPerimeter.coordinates.map(c => [c.lat ?? c[0], c.lng ?? c[1]])
           map.fitBounds(L.latLngBounds(latlngs), { padding: [60, 60], maxZoom: 16 })
         }
       })
     })
 
-    // Fit bounds
     if (bounds.length > 0) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
     }
@@ -121,7 +98,7 @@ export function DashboardMap({ perimeters = [], cameras = [], height = "400px", 
     mapInstanceRef.current = map
 
     return () => { map.remove(); mapInstanceRef.current = null }
-  }, [ready, perimeters, cameras])
+  }, [perimeters, cameras])
 
   return (
     <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">

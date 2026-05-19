@@ -1,3 +1,4 @@
+import uuid
 import os
 from django.db import models
 from surveillance.models import Detection
@@ -7,7 +8,8 @@ class Report(models.Model):
         ('PDF', 'PDF'),
         ('CSV', 'CSV'),
     )
-    
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     file_format = models.CharField(max_length=10, choices=FORMAT_CHOICES)
     file_path = models.FileField(upload_to='reports/')

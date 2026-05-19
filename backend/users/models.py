@@ -1,6 +1,8 @@
 import uuid
 import hashlib
-from django.db import models
+import random
+from datetime import timedelta
+from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils import timezone
 
@@ -75,3 +77,52 @@ class CustomUser(AbstractUser):
     def nin_hash(self):
         """Retourne le hash du NIN pour comparaison si besoin"""
         return hashlib.sha256(self.nin.encode()).hexdigest()
+
+
+class OTPCode(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='otp_codes')
+    code = models.CharField(max_length=6)
+    session_token = models.UUIDField(default=uuid.uuid4, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    @classmethod
+    def generate_for(cls, user):
+        with transaction.atomic():
+            cls.objects.select_for_update().filter(user=user, is_used=False).delete()
+            return cls.objects.create(
+                user=user,
+                code=f"{random.randint(100000, 999999)}",
+                expires_at=timezone.now() + timedelta(minutes=10),
+            )
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+
+class TrustedDevice(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='trusted_devices')
+    token = models.UUIDField(default=uuid.uuid4, unique=True)
+    user_agent = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ['-created_at']
+
+    @classmethod
+    def create_for(cls, user, user_agent=''):
+        return cls.objects.create(
+            user=user,
+            expires_at=timezone.now() + timedelta(days=90),
+            user_agent=user_agent[:300],
+        )
+
+    @property
+    def is_valid(self):
+        return timezone.now() < self.expires_at

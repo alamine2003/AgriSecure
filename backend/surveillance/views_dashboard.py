@@ -208,8 +208,11 @@ class DashboardViewSet(viewsets.GenericViewSet):
         
         agent = request.user
         
-        # Période d'analyse
-        days = int(request.query_params.get('days', 30))
+        # Période d'analyse — clampée à [1, 365] pour éviter les requêtes géantes
+        try:
+            days = max(1, min(int(request.query_params.get('days', 30)), 365))
+        except (ValueError, TypeError):
+            days = 30
         start_date = timezone.now() - timedelta(days=days)
         
         # Détections par jour

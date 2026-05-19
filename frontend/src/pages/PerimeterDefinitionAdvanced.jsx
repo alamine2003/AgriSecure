@@ -233,7 +233,7 @@ export default function PerimeterDefinitionAdvanced() {
                   : { lat: 14.4974, lng: -14.4524 }
               }
               initialZoom={editingPerimeter ? 14 : 8}
-              height="500px"
+              height="400px"
               editMode={!!editingPerimeter}
             />
 
@@ -291,7 +291,8 @@ export default function PerimeterDefinitionAdvanced() {
                 <div className="flex gap-3 pt-4 border-t border-border/50">
                   <Button
                     onClick={editingPerimeter ? handleUpdateSubmit : handleCreateSubmit}
-                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl shadow-lg shadow-amber-500/20 border-0"
+                    variant="gradient"
+                    className="flex-1 rounded-xl border-0"
                     disabled={createPerimeterMutation.isPending || updatePerimeterMutation.isPending}
                   >
                     {editingPerimeter ? 'Mettre à jour' : 'Enregistrer'}
@@ -324,7 +325,8 @@ export default function PerimeterDefinitionAdvanced() {
             </div>
             <Button
               onClick={() => setShowCreateForm(true)}
-              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl shadow-lg shadow-amber-500/20 border-0"
+              variant="gradient"
+              className="rounded-xl border-0"
               size="sm"
             >
               <Plus className="w-4 h-4 mr-1.5" />
@@ -342,14 +344,15 @@ export default function PerimeterDefinitionAdvanced() {
               </div>
             ) : perimeters.length === 0 ? (
               <div className="text-center py-16">
-                <div className="w-14 h-14 mx-auto rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
-                  <MapPin className="w-7 h-7 text-muted-foreground/40" />
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
+                  <MapPin className="w-7 h-7 text-primary/70" />
                 </div>
                 <p className="text-sm font-medium text-foreground mb-1">Aucun périmètre</p>
                 <p className="text-xs text-muted-foreground mb-4">Commencez par dessiner votre premier périmètre</p>
                 <Button
                   onClick={() => setShowCreateForm(true)}
-                  className="bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-xl shadow-lg shadow-amber-500/20 border-0"
+                  variant="gradient"
+                  className="rounded-xl border-0"
                   size="sm"
                 >
                   <Plus className="w-4 h-4 mr-1.5" />

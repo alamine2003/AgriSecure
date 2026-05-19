@@ -34,16 +34,18 @@ def create_notification(user, title, message, notification_type='INFO', priority
 
 def notify_agent_alert(agent, alert):
     """Notifier un agent d'une nouvelle alerte de détection"""
-    danger = getattr(alert, 'danger_score', 5)
+    label = alert.detection.label if alert.detection else 'Intrusion'
+    camera_name = alert.detection.camera.name if alert.detection else 'inconnue'
+    camera_id = str(alert.detection.camera.id) if alert.detection else None
     return create_notification(
         user=agent,
-        title=f"Alerte: {getattr(alert, 'alert_type', 'Intrusion')}",
-        message=f"Intrusion détectée sur {alert.detection.camera.name} — niveau de danger {danger}/10",
+        title=f"Alerte critique : {label}",
+        message=f"Intrusion détectée sur la caméra « {camera_name} » — {alert.message}",
         notification_type='ALERT',
-        priority='URGENT' if danger >= 7 else 'HIGH',
+        priority='URGENT',
         content_type='alert',
         object_id=str(alert.id),
-        metadata={'camera_id': str(alert.detection.camera.id), 'danger_score': danger},
+        metadata={'camera_id': camera_id, 'label': label},
     )
 
 
@@ -136,7 +138,7 @@ def _send_email(notification, channel):
             message=notification.message,
             from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@agriwatch.sn'),
             recipient_list=[email],
-            fail_silently=True,
+            fail_silently=False,
         )
         notification.mark_as_sent()
     except Exception as exc:

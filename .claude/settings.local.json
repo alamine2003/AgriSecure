@@ -27,7 +27,12 @@
       "PowerShell(git -C $repo diff --cached --stat 2>&1)",
       "PowerShell(git -C $repo remote add origin https://github.com/alamine2003/AgriSecure.git)",
       "PowerShell(git -C $repo push -u origin develop 2>&1)",
-      "Bash(Test-Path *)"
+      "Bash(Test-Path *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\7MAKSACOD PC\\\\Downloads\\\\dossiers soutenance\\\\Alamine_Bouba_Project_v0\" -Recurse -Directory)",
+      "Bash(Sort-Object)",
+      "Bash(Get-ChildItem -Recurse -Directory)",
+      "Bash(dir /s \"C:\\\\Users\\\\7MAKSACOD PC\\\\Downloads\\\\dossiers soutenance\\\\Alamine_Bouba_Project_v0\")",
+      "PowerShell(docker compose exec *)"
     ]
   }
 }

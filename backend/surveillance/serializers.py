@@ -1,6 +1,9 @@
+import re
 from rest_framework import serializers
 from .models import Camera, Detection, Alert, InstallationAppointment, AgentRegistrationRequest, AuditLog
 from users.models import CustomUser
+
+_HTML_RE = re.compile(r'<[^>]+>')
 
 class CameraSerializer(serializers.ModelSerializer):
     agent_id = serializers.PrimaryKeyRelatedField(
@@ -10,11 +13,16 @@ class CameraSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    agent_email = serializers.ReadOnlyField(source='agent.email')
 
     class Meta:
         model = Camera
-        fields = '__all__'
-        read_only_fields = ['id']
+        fields = [
+            'id', 'name', 'location', 'camera_index', 'is_active',
+            'agent', 'agent_id', 'agent_email',
+            'latitude', 'longitude', 'installed_at',
+        ]
+        read_only_fields = ['id', 'agent']
 
 class DetectionSerializer(serializers.ModelSerializer):
     camera_name = serializers.ReadOnlyField(source='camera.name')
@@ -59,16 +67,26 @@ class AgentRegistrationRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'status', 'rejection_reason', 'created_at', 'processed_at']
 
     def validate_nin(self, value):
-        # Vérifier si le NIN existe déjà dans les users
         if CustomUser.objects.filter(nin=value).exists():
-            raise serializers.ValidationError("Un compte existe déjà avec ce NIN.")
+            raise serializers.ValidationError("Cette demande ne peut pas être traitée.")
         return value
 
     def validate_email(self, value):
-        # Vérifier si l'email existe déjà dans les users
         if CustomUser.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Un compte existe déjà avec cet email.")
+            raise serializers.ValidationError("Cette demande ne peut pas être traitée.")
         return value
+
+    def validate_first_name(self, value):
+        return _HTML_RE.sub('', value).strip()
+
+    def validate_last_name(self, value):
+        return _HTML_RE.sub('', value).strip()
+
+    def validate_locality(self, value):
+        return _HTML_RE.sub('', value).strip()
+
+    def validate_address(self, value):
+        return _HTML_RE.sub('', value).strip()
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

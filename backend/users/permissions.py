@@ -25,7 +25,7 @@ class MustChangePasswordPermission(permissions.BasePermission):
         if not request.user.must_change_password:
             return True
 
-        return request.path.rstrip('/').endswith('/auth/change-password')
+        return 'change-password' in request.path or 'change_password' in request.path
 
 class IsOwnerOrMaintenancier(permissions.BasePermission):
     """Accès au propriétaire ou au maintenancier"""

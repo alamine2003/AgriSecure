@@ -6,11 +6,13 @@
 #
 # Compatible Windows (cmd.exe / PowerShell) ET Linux / macOS / WSL / Git Bash.
 # Aucun caractere accentue dans les "echo" -> evite les problemes d'encodage.
+#
+# Fichiers Docker Compose :
+#   docker-compose.yml          -> tous les services (app + monitoring)
+#   docker-compose.override.yml -> surcharges dev local (auto-charge par Docker)
 # =============================================================================
 
-DC      = docker compose
-DC_PROD = docker compose -f docker-compose.yml
-DC_MON  = docker compose -f docker-compose.yml -f docker-compose.monitoring.yml
+DC = docker compose
 
 .DEFAULT_GOAL := help
 
@@ -22,11 +24,10 @@ help:
 	@echo.
 	@echo Cycle de vie :
 	@echo   install               Installation complete (premiere fois)
-	@echo   dev                   Demarrer en mode DEVELOPPEMENT
-	@echo   prod                  Demarrer en mode PRODUCTION
-	@echo   build                 (Re)construire les images Docker
-	@echo   up                    Demarrer les services (sans rebuild)
+	@echo   dev                   Demarrer en mode DEVELOPPEMENT (rebuild)
+	@echo   up                    Demarrer tous les services (sans rebuild)
 	@echo   down                  Arreter tous les services
+	@echo   build                 (Re)construire les images Docker
 	@echo   restart               Redemarrer tous les services
 	@echo   restart-backend       Redemarrer uniquement le backend
 	@echo   restart-frontend      Redemarrer uniquement le frontend
@@ -36,12 +37,13 @@ help:
 	@echo   reset                 Reinitialiser (clean + build + up)
 	@echo.
 	@echo Logs :
-	@echo   logs                  Logs en temps reel
+	@echo   logs                  Logs en temps reel (tous les services)
 	@echo   logs-tail             Derniers 100 logs
 	@echo   logs-backend          Logs backend
 	@echo   logs-frontend         Logs frontend
 	@echo   logs-nginx            Logs nginx
 	@echo   logs-celery           Logs Celery worker + beat
+	@echo   logs-monitoring       Logs stack monitoring
 	@echo.
 	@echo Django :
 	@echo   migrate               Creer + appliquer les migrations
@@ -61,10 +63,14 @@ help:
 	@echo   format                Formatage Python (black)
 	@echo.
 	@echo Monitoring :
-	@echo   monitoring-up         Demarrer Prometheus + Grafana + Loki
-	@echo   monitoring-down       Arreter le monitoring
+	@echo   monitoring-up         Demarrer uniquement la stack monitoring
+	@echo   monitoring-down       Arreter uniquement la stack monitoring
+	@echo   monitoring-restart    Redemarrer la stack monitoring
 	@echo   monitoring-logs       Logs monitoring
 	@echo   monitoring-status     Etat de la stack monitoring
+	@echo   monitoring-clean      Nettoyer les volumes monitoring
+	@echo   open-grafana          Ouvrir Grafana dans le navigateur
+	@echo   open-prometheus       Ouvrir Prometheus dans le navigateur
 	@echo.
 	@echo Diagnostic :
 	@echo   diagnostic            Diagnostic complet
@@ -77,38 +83,43 @@ help:
 install: build up migrate create-test-user
 	@echo.
 	@echo Installation terminee !
-	@echo Lance maintenant : make dev
+	@echo Application disponible sur : http://localhost
 
 .PHONY: dev
 dev:
 	@echo Demarrage en mode DEVELOPPEMENT...
 	@$(DC) up -d --build
 	@echo.
-	@echo Services demarres ! (verifie avec: make status)
+	@echo Tous les services demarres ! (verifie avec: make status)
 	@echo   Application  : http://localhost
-	@echo   Backend API  : http://localhost:8000/api/v1/
-	@echo   API Docs     : http://localhost:8000/api/docs/
-	@echo   Django Admin : http://localhost:8000/admin/
+	@echo   Backend API  : http://localhost/api/v1/
+	@echo   API Docs     : http://localhost/api/docs/  (DEBUG uniquement)
+	@echo   Django Admin : http://localhost/admin/
+	@echo   Grafana      : http://localhost:3001  (admin / admin123)
+	@echo   Prometheus   : http://localhost:9090
+	@echo   Flower       : http://localhost:5555
+	@echo   MinIO        : http://localhost:9001
+	@echo   PgAdmin      : http://localhost:5050
 	@echo.
-
-.PHONY: prod
-prod:
-	@echo Demarrage en mode PRODUCTION...
-	@$(DC_PROD) up -d --build
-	@echo.
-	@echo Application disponible sur http://localhost
-
-.PHONY: build
-build:
-	@$(DC) build
 
 .PHONY: up
 up:
+	@echo Demarrage de tous les services...
 	@$(DC) up -d
+	@echo.
+	@echo Tous les services sont actifs. (verifie avec: make status)
+	@echo   Application  : http://localhost
+	@echo   Grafana      : http://localhost:3001
+	@echo   Prometheus   : http://localhost:9090
+	@echo.
 
 .PHONY: down
 down:
 	@$(DC) down
+
+.PHONY: build
+build:
+	@$(DC) build
 
 .PHONY: restart
 restart:
@@ -162,6 +173,10 @@ logs-nginx:
 .PHONY: logs-celery
 logs-celery:
 	@$(DC) logs -f celery-worker celery-beat
+
+.PHONY: logs-monitoring
+logs-monitoring:
+	@$(DC) logs -f prometheus grafana loki promtail
 
 # ============ Django ============
 
@@ -222,25 +237,62 @@ format:
 
 # ============ Monitoring ============
 
+MONITORING_SERVICES = prometheus grafana loki promtail cadvisor node-exporter postgres-exporter redis-exporter nginx-exporter
+
 .PHONY: monitoring-up
 monitoring-up:
-	@$(DC_MON) up -d
+	@echo Demarrage stack monitoring...
+	@$(DC) up -d $(MONITORING_SERVICES)
 	@echo.
 	@echo Monitoring demarre :
-	@echo   Grafana    : http://localhost:3001
+	@echo   Grafana    : http://localhost:3001  (admin / admin123)
 	@echo   Prometheus : http://localhost:9090
+	@echo   Loki       : http://localhost:3100
+	@echo   cAdvisor   : http://localhost:8081
 
 .PHONY: monitoring-down
 monitoring-down:
-	@$(DC_MON) down
+	@echo Arret stack monitoring...
+	@$(DC) stop $(MONITORING_SERVICES)
+	@echo Monitoring arrete.
+
+.PHONY: monitoring-restart
+monitoring-restart:
+	@echo Redemarrage stack monitoring...
+	@$(DC) restart $(MONITORING_SERVICES)
+	@echo Monitoring redemarre.
 
 .PHONY: monitoring-logs
 monitoring-logs:
-	@$(DC_MON) logs -f prometheus grafana loki promtail cadvisor node-exporter postgres-exporter redis-exporter nginx-exporter
+	@$(DC) logs -f $(MONITORING_SERVICES)
 
 .PHONY: monitoring-status
 monitoring-status:
-	@$(DC_MON) ps
+	@echo Etat stack monitoring :
+	@$(DC) ps $(MONITORING_SERVICES)
+
+.PHONY: monitoring-clean
+monitoring-clean:
+	@echo Nettoyage volumes monitoring...
+	@$(DC) stop $(MONITORING_SERVICES)
+	@$(DC) rm -f $(MONITORING_SERVICES)
+	@docker volume rm -f $$(docker volume ls -q | grep -E "prometheus_data|grafana_data|loki_data") 2>nul || echo.
+	@echo Volumes monitoring nettoyes.
+
+.PHONY: grafana-reset-password
+grafana-reset-password:
+	@echo Reinitialisation mot de passe Grafana -> admin123
+	@$(DC) exec grafana /usr/share/grafana/bin/grafana cli admin reset-admin-password admin123
+
+.PHONY: open-grafana
+open-grafana:
+	@echo Ouverture Grafana...
+	@start http://localhost:3001
+
+.PHONY: open-prometheus
+open-prometheus:
+	@echo Ouverture Prometheus...
+	@start http://localhost:9090
 
 # ============ Diagnostic ============
 
@@ -263,19 +315,22 @@ info:
 	@echo Systeme de Surveillance Agricole par IA
 	@echo.
 	@echo Stack :
-	@echo   Backend  : Django 5 + DRF + Channels
-	@echo   Frontend : React 18 + Vite + TailwindCSS
-	@echo   DB       : PostgreSQL
-	@echo   Cache    : Redis 7
-	@echo   Storage  : MinIO
-	@echo   IA       : YOLOv8
-	@echo   Tasks    : Celery + Celery Beat
-	@echo   Proxy    : Nginx
+	@echo   Backend    : Django 5 + DRF + Channels
+	@echo   Frontend   : React 18 + Vite + TailwindCSS
+	@echo   DB         : PostgreSQL 15
+	@echo   Cache      : Redis 7
+	@echo   Storage    : MinIO
+	@echo   IA         : YOLOv8
+	@echo   Tasks      : Celery + Celery Beat
+	@echo   Proxy      : Nginx
+	@echo   Monitoring : Prometheus + Grafana + Loki
 	@echo.
-	@echo URLs (mode dev) :
-	@echo   http://localhost                - Application
-	@echo   http://localhost:8000/admin/    - Django Admin
-	@echo   http://localhost:8000/api/docs/ - API Docs
+	@echo URLs :
+	@echo   http://localhost           - Application
+	@echo   http://localhost/admin/    - Django Admin
+	@echo   http://localhost/api/docs/ - API Docs (DEBUG uniquement)
+	@echo   http://localhost:3001           - Grafana
+	@echo   http://localhost:9090           - Prometheus
 	@echo   http://localhost:5050           - PgAdmin
 	@echo   http://localhost:5555           - Flower
 	@echo   http://localhost:9001           - MinIO Console

@@ -1,0 +1,291 @@
+groups:
+  # ── Ressources système ────────────────────────────────────────
+  - name: system_resources
+    interval: 30s
+    rules:
+
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: host
+          team: ops
+        annotations:
+          summary: "CPU élevé ({{ $value | humanize }}%)"
+          description: "L'utilisation CPU dépasse 80% depuis 5 minutes. Vérifier les processus YOLO et Celery."
+
+      - alert: CriticalCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: host
+          team: ops
+        annotations:
+          summary: "CPU critique ({{ $value | humanize }}%) — risque de saturation"
+          description: "CPU à {{ $value | humanize }}% depuis 2 minutes. Le système risque la saturation."
+
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: host
+          team: ops
+        annotations:
+          summary: "Mémoire élevée ({{ $value | humanize }}%)"
+          description: "L'utilisation mémoire dépasse 85%. Impact possible sur les inférences YOLO."
+
+      - alert: CriticalMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          service: host
+          team: ops
+        annotations:
+          summary: "Mémoire critique ({{ $value | humanize }}%) — OOM imminent"
+          description: "Mémoire à {{ $value | humanize }}%. Risque de kill OOM imminent."
+
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/", fstype!="tmpfs"} / node_filesystem_size_bytes{mountpoint="/", fstype!="tmpfs"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+          service: host
+          team: ops
+        annotations:
+          summary: "Espace disque faible ({{ $value | humanize }}% libre)"
+          description: "Moins de 15% d'espace disque disponible. Les frames MinIO et les logs risquent de saturer le disque."
+
+      - alert: DiskSpaceCritical
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/", fstype!="tmpfs"} / node_filesystem_size_bytes{mountpoint="/", fstype!="tmpfs"}) * 100 < 5
+        for: 1m
+        labels:
+          severity: critical
+          service: host
+          team: ops
+        annotations:
+          summary: "Disque presque plein ({{ $value | humanize }}% libre)"
+          description: "Moins de 5% libre. Les écritures vont échouer — arrêt probable imminent."
+
+      - alert: DiskIOHigh
+        expr: |
+          rate(node_disk_io_time_seconds_total[5m]) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          service: host
+          team: ops
+        annotations:
+          summary: "I/O disque saturé ({{ $value | humanizePercentage }})"
+          description: "L'I/O disque est saturé depuis 10 minutes. Vérifier MinIO et PostgreSQL."
+
+      - alert: NetworkHighTraffic
+        expr: |
+          rate(node_network_receive_bytes_total{device!="lo"}[5m]) > 100000000
+        for: 5m
+        labels:
+          severity: warning
+          service: host
+          team: ops
+        annotations:
+          summary: "Trafic réseau élevé ({{ $value | humanize1024 }}B/s)"
+          description: "Plus de 100 MB/s de trafic réseau entrant — vérifier les streams vidéo."
+
+  # ── PostgreSQL ────────────────────────────────────────────────
+  - name: postgresql_alerts
+    interval: 30s
+    rules:
+
+      - alert: PostgreSQLHighConnections
+        expr: |
+          pg_stat_activity_count{datname="surveillance_db"} > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: postgres
+          team: data
+        annotations:
+          summary: "Connexions PostgreSQL élevées ({{ $value }})"
+          description: "Plus de 80 connexions actives sur PostgreSQL. Risque de saturation du pool."
+
+      - alert: PostgreSQLDeadlocks
+        expr: |
+          rate(pg_stat_database_deadlocks_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: postgres
+          team: data
+        annotations:
+          summary: "Deadlocks PostgreSQL détectés"
+          description: "Des deadlocks sont détectés dans PostgreSQL. Impact possible sur les écritures de détections."
+
+      - alert: PostgreSQLDatabaseSizeGrowth
+        expr: |
+          (pg_database_size_bytes{datname="surveillance_db"} / 1073741824) > 5
+        for: 1m
+        labels:
+          severity: warning
+          service: postgres
+          team: data
+        annotations:
+          summary: "Base de données volumineuse ({{ $value | humanize }} GB)"
+          description: "La base de données dépasse 5 GB. Planifier un archivage des détections anciennes."
+
+      - alert: PostgreSQLSlowReplication
+        expr: |
+          pg_replication_lag > 300
+        for: 5m
+        labels:
+          severity: warning
+          service: postgres
+          team: data
+        annotations:
+          summary: "Lag de réplication PostgreSQL élevé"
+          description: "Le lag de réplication dépasse 5 minutes."
+
+  # ── Redis ──────────────────────────────────────────────────────
+  - name: redis_alerts
+    interval: 15s
+    rules:
+
+      - alert: RedisHighMemoryUsage
+        expr: |
+          (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          team: data
+        annotations:
+          summary: "Redis mémoire élevée ({{ $value | humanize }}%)"
+          description: "Redis utilise plus de 80% de sa mémoire allouée. Risque d'éviction des clés de cache YOLO."
+
+      - alert: RedisHighKeyEviction
+        expr: |
+          rate(redis_evicted_keys_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          team: data
+        annotations:
+          summary: "Éviction de clés Redis élevée ({{ $value | humanize }}/s)"
+          description: "Redis évicte plus de 100 clés/s. Le cache YOLO et les sessions WebSocket sont impactés."
+
+      - alert: RedisConnectionsSaturated
+        expr: redis_connected_clients > 200
+        for: 5m
+        labels:
+          severity: warning
+          service: redis
+          team: data
+        annotations:
+          summary: "Connexions Redis élevées ({{ $value }})"
+          description: "Plus de 200 clients connectés à Redis simultanément."
+
+  # ── Nginx ──────────────────────────────────────────────────────
+  - name: nginx_alerts
+    interval: 15s
+    rules:
+
+      - alert: NginxHighConnections
+        expr: nginx_connections_active > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: nginx
+          team: ops
+        annotations:
+          summary: "Connexions Nginx élevées ({{ $value }})"
+          description: "Plus de 1000 connexions actives sur Nginx."
+
+      - alert: NginxHighRequestRate
+        expr: |
+          rate(nginx_http_requests_total[5m]) > 500
+        for: 5m
+        labels:
+          severity: warning
+          service: nginx
+          team: ops
+        annotations:
+          summary: "Taux de requêtes Nginx élevé ({{ $value | humanize }}/s)"
+          description: "Plus de 500 requêtes/s sur Nginx."
+
+  # ── Docker Conteneurs ──────────────────────────────────────────
+  - name: container_alerts
+    interval: 30s
+    rules:
+
+      - alert: ContainerHighCPU
+        expr: |
+          rate(container_cpu_usage_seconds_total{container!="", name!=""}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: docker
+          team: ops
+        annotations:
+          summary: "Conteneur {{ $labels.name }} CPU élevé ({{ $value | humanize }}%)"
+          description: "Le conteneur {{ $labels.name }} utilise plus de 80% de CPU."
+
+      - alert: ContainerHighMemory
+        expr: |
+          (container_memory_usage_bytes{container!="", name!=""} / container_spec_memory_limit_bytes{container!="", name!=""}) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: docker
+          team: ops
+        annotations:
+          summary: "Conteneur {{ $labels.name }} mémoire élevée ({{ $value | humanize }}%)"
+          description: "Le conteneur {{ $labels.name }} utilise plus de 85% de sa limite mémoire."
+
+      - alert: ContainerRestarting
+        expr: |
+          increase(container_start_time_seconds{name!=""}[15m]) > 3
+        for: 0m
+        labels:
+          severity: warning
+          service: docker
+          team: ops
+        annotations:
+          summary: "Conteneur {{ $labels.name }} redémarre en boucle"
+          description: "Le conteneur {{ $labels.name }} a redémarré plus de 3 fois en 15 minutes."
+
+  # ── Loki / Prometheus ────────────────────────────────────────
+  - name: monitoring_self
+    interval: 60s
+    rules:
+
+      - alert: PrometheusScrapeFailing
+        expr: up == 0
+        for: 3m
+        labels:
+          severity: warning
+          service: prometheus
+          team: ops
+        annotations:
+          summary: "Collecte de métriques échoue pour {{ $labels.job }}"
+          description: "Prometheus ne peut pas collecter les métriques de {{ $labels.job }} depuis {{ $labels.instance }}."
+
+      - alert: PrometheusTSDBStorageFull
+        expr: |
+          (prometheus_tsdb_storage_blocks_bytes / 1073741824) > 20
+        for: 5m
+        labels:
+          severity: warning
+          service: prometheus
+          team: ops
+        annotations:
+          summary: "Stockage Prometheus élevé ({{ $value | humanize }} GB)"
+          description: "Les données Prometheus occupent plus de 20 GB. Envisager une rétention plus courte."

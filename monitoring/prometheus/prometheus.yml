@@ -1,72 +1,98 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  scrape_timeout: 10s
   external_labels:
-    monitor: 'surveillance-agricole'
-    environment: 'development'
+    monitor: 'agriwatch-surveillance'
+    environment: 'production'
+    project: 'surveillance-agricole'
 
-# Alertmanager configuration
+# ── Alertmanager ─────────────────────────────────────────────
 alerting:
   alertmanagers:
     - static_configs:
-        - targets: []
+        - targets: ['alertmanager:9093']
+      timeout: 10s
+      api_version: v2
 
-# Load rules once and periodically evaluate them
+# ── Règles d'alerte ──────────────────────────────────────────
 rule_files:
-  - "/etc/prometheus/alerts/*.yml"
+  - '/etc/prometheus/alerts/backend_alerts.yml'
+  - '/etc/prometheus/alerts/business_alerts.yml'
+  - '/etc/prometheus/alerts/infrastructure_alerts.yml'
 
-# Scrape configurations
+# ── Collecte des métriques ───────────────────────────────────
 scrape_configs:
-  # Prometheus self-monitoring
+
+  # Prometheus (auto-monitoring)
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
         labels:
           service: 'prometheus'
+          team: 'ops'
 
-  # Django Backend metrics (via django-prometheus)
+  # Django Backend (django-prometheus expose /metrics)
   - job_name: 'django-backend'
     scrape_interval: 10s
+    metrics_path: '/metrics'
     static_configs:
       - targets: ['backend:8000']
         labels:
           service: 'backend'
           app: 'django'
-    metrics_path: '/metrics'
+          team: 'backend'
 
-  # Node Exporter (system metrics)
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets: ['node-exporter:9100']
-        labels:
-          service: 'node-exporter'
-
-  # PostgreSQL metrics
+  # PostgreSQL
   - job_name: 'postgres'
+    scrape_interval: 15s
     static_configs:
       - targets: ['postgres-exporter:9187']
         labels:
           service: 'postgres'
+          team: 'data'
           database: 'surveillance'
 
-  # Redis metrics
+  # Redis
   - job_name: 'redis'
+    scrape_interval: 10s
     static_configs:
       - targets: ['redis-exporter:9121']
         labels:
           service: 'redis'
+          team: 'data'
 
-  # Nginx metrics
+  # Nginx
   - job_name: 'nginx'
+    scrape_interval: 15s
     static_configs:
       - targets: ['nginx-exporter:9113']
         labels:
           service: 'nginx'
+          team: 'ops'
 
-  # Docker container metrics
+  # Node Exporter (métriques système Linux)
+  - job_name: 'node-exporter'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'host'
+          team: 'ops'
+
+  # cAdvisor (métriques conteneurs Docker)
   - job_name: 'cadvisor'
     scrape_interval: 10s
     static_configs:
       - targets: ['cadvisor:8080']
         labels:
-          service: 'cadvisor'
+          service: 'docker'
+          team: 'ops'
+
+  # Alertmanager (auto-monitoring)
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels:
+          service: 'alertmanager'
+          team: 'ops'

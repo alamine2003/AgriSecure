@@ -53,16 +53,20 @@ class Subscription(models.Model):
         return f"{self.agent.email} - {self.plan} ({self.status})"
 
     def is_active(self):
-        """Vérifier si l'abonnement est actif"""
+        """Vérifier si l'abonnement est actif (lecture seule, sans effet de bord)"""
         if self.status != 'ACTIVE':
             return False
-        
         if self.end_date and self.end_date < timezone.now():
-            self.status = 'EXPIRED'
-            self.save()
             return False
-        
         return True
+
+    def expire_if_needed(self):
+        """Expirer l'abonnement si la date de fin est dépassée"""
+        if self.status == 'ACTIVE' and self.end_date and self.end_date < timezone.now():
+            self.status = 'EXPIRED'
+            self.save(update_fields=['status'])
+            return True
+        return False
 
     def has_feature(self, feature):
         """Vérifier si une fonctionnalité est incluse"""

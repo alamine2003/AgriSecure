@@ -8,6 +8,12 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
+try:
+    from core.custom_metrics import frame_cache_hits_total, frame_cache_misses_total
+except Exception:
+    frame_cache_hits_total = None
+    frame_cache_misses_total = None
+
 class YOLOCache:
     """
     Cache intelligent pour les détections YOLO avec Redis.
@@ -64,14 +70,18 @@ class YOLOCache:
             cached_data = self.redis_client.get(cache_key)
             if cached_data:
                 parsed = json.loads(cached_data)
-                # Extract the detections list from the cached dict
                 detections = parsed.get('detections', parsed) if isinstance(parsed, dict) else parsed
                 logger.debug(f"Cache hit YOLO pour frame {frame_hash}")
+                if frame_cache_hits_total:
+                    frame_cache_hits_total.inc()
                 return detections
-                
+
+            if frame_cache_misses_total:
+                frame_cache_misses_total.inc()
+
         except Exception as e:
             logger.warning(f"Erreur lecture cache YOLO: {e}")
-        
+
         return None
     
     def cache_detections(self, frame_shape: tuple, frame_bytes_sample: bytes, detections: List[Dict[str, Any]]):

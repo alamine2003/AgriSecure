@@ -1,46 +1,43 @@
-import django
-from django.conf import settings
+import pytest
 
 
-def pytest_configure():
-    settings.configure(
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': ':memory:',
-            }
-        },
-        INSTALLED_APPS=[
-            'django.contrib.contenttypes',
-            'django.contrib.auth',
-            'rest_framework',
-            'django_filters',
-            'channels',
-            'users',
-            'surveillance',
-            'camera',
-            'ai_engine',
-            'notifications',
-            'reports',
-        ],
-        AUTH_USER_MODEL='users.CustomUser',
-        DEFAULT_AUTO_FIELD='django.db.models.BigAutoField',
-        REST_FRAMEWORK={
-            'DEFAULT_AUTHENTICATION_CLASSES': [
-                'rest_framework_simplejwt.authentication.JWTAuthentication',
-            ],
-            'DEFAULT_PERMISSION_CLASSES': [
-                'rest_framework.permissions.IsAuthenticated',
-            ],
-        },
-        CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}},
-        CELERY_TASK_ALWAYS_EAGER=True,
-        CELERY_BROKER_URL='memory://',
-        SECRET_KEY='test-secret-key-not-for-production',
-        USE_TZ=True,
-        LANGUAGE_CODE='fr-fr',
-        TIME_ZONE='UTC',
-        STATIC_URL='/static/',
-        MEDIA_URL='/media/',
-        MEDIA_ROOT='/tmp/media',
-    )
+@pytest.fixture
+def api_client():
+    from rest_framework.test import APIClient
+    return APIClient()
+
+
+@pytest.fixture
+def make_agent(db):
+    def _make(email='agent@test.com', nin='NIN001', must_change=False, active=True):
+        from users.models import CustomUser
+        u = CustomUser.objects.create_user(
+            email=email, nin=nin, first_name='A', last_name='B', password='pass123'
+        )
+        u.must_change_password = must_change
+        u.is_active = active
+        u.save()
+        return u
+    return _make
+
+
+@pytest.fixture
+def make_maintenancier(db):
+    def _make(email='maint@test.com', nin='MAINT01'):
+        from users.models import CustomUser
+        return CustomUser.objects.create_superuser(
+            email=email, nin=nin, password='pass123'
+        )
+    return _make
+
+
+@pytest.fixture
+def auth_client():
+    def _client(user):
+        from rest_framework.test import APIClient
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        c = APIClient()
+        c.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        return c
+    return _client

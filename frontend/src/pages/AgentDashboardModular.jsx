@@ -83,8 +83,11 @@ export default function AgentDashboardModular() {
       setPerimeterDialogOpen(false)
       setNewPerimeter({ name: "", description: "" })
     },
-    onError: () => {
-      toast.error("Erreur lors de la création du périmètre")
+    onError: (err) => {
+      const d = err?.response?.data
+      const msg = d?.detail || d?.coordinates?.[0] || d?.center_lat?.[0] || d?.center_lng?.[0]
+        || (d ? JSON.stringify(d) : null) || "Erreur lors de la création du périmètre"
+      toast.error(msg)
     }
   })
 
@@ -137,13 +140,17 @@ export default function AgentDashboardModular() {
 
   // ========== HANDLERS ==========
   const handleSavePerimeter = (mapData) => {
+    if (!newPerimeter.name?.trim()) {
+      toast.error("Le nom du périmètre est requis")
+      return
+    }
+    const toFixed7 = (v) => (v != null ? parseFloat(v.toFixed(7)) : null)
     const payload = {
-      name: newPerimeter.name || "Nouveau Périmètre",
+      name: newPerimeter.name.trim(),
       description: newPerimeter.description || "",
       coordinates: mapData.coordinates,
-      area_hectares: mapData.area_hectares ?? mapData.area,
-      center_lat: mapData.center?.lat,
-      center_lng: mapData.center?.lng,
+      center_lat: toFixed7(mapData.center?.lat),
+      center_lng: toFixed7(mapData.center?.lng),
     }
 
     if (editingPerimeter) {
@@ -263,58 +270,45 @@ export default function AgentDashboardModular() {
 
       {/* Dialog Périmètre */}
       <Dialog open={perimeterDialogOpen} onOpenChange={setPerimeterDialogOpen}>
-        <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <Map className="w-6 h-6 text-blue-600" />
+        <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden bg-card border-border/50">
+          <DialogHeader className="px-6 py-4 border-b border-border/50 bg-card">
+            <DialogTitle className="flex items-center gap-2 text-base text-foreground">
+              <Map className="w-5 h-5 text-primary" />
               {editingPerimeter ? "Modifier le Périmètre" : "Nouveau Périmètre"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="grid grid-cols-3 h-[calc(90vh-5rem)]">
-            {/* Formulaire - Sidebar */}
-            <div className="col-span-1 border-r bg-gray-50 p-4 overflow-y-auto">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Nom du Périmètre *</Label>
-                  <Input
-                    id="name"
-                    value={newPerimeter.name}
-                    onChange={(e) => setNewPerimeter({ ...newPerimeter, name: e.target.value })}
-                    placeholder="Ex: Champ Principal"
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={newPerimeter.description}
-                    onChange={(e) => setNewPerimeter({ ...newPerimeter, description: e.target.value })}
-                    placeholder="Informations supplémentaires..."
-                    rows={3}
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div className="pt-4 border-t">
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Instructions:</p>
-                  <ul className="text-xs text-gray-600 space-y-1.5">
-                    <li>• Cliquez sur la carte pour ajouter des points</li>
-                    <li>• Glissez les points pour modifier</li>
-                    <li>• Cliquez "Terminer" puis "Enregistrer"</li>
-                  </ul>
-                </div>
+          <div className="flex flex-col h-[calc(90vh-5rem)] overflow-hidden">
+            {/* Formulaire compact horizontal */}
+            <div className="shrink-0 border-b border-border/50 bg-muted/20 px-4 py-3 flex flex-wrap items-end gap-4">
+              <div className="flex-1 min-w-[180px]">
+                <Label htmlFor="name" className="text-foreground text-xs font-semibold">Nom du Périmètre *</Label>
+                <Input
+                  id="name"
+                  value={newPerimeter.name}
+                  onChange={(e) => setNewPerimeter({ ...newPerimeter, name: e.target.value })}
+                  placeholder="Ex: Champ Principal"
+                  className="mt-1 h-8 text-sm bg-card border-border/50 text-foreground"
+                />
+              </div>
+              <div className="flex-[2] min-w-[220px]">
+                <Label htmlFor="description" className="text-foreground text-xs font-semibold">Description <span className="font-normal text-muted-foreground">(optionnel)</span></Label>
+                <Input
+                  id="description"
+                  value={newPerimeter.description}
+                  onChange={(e) => setNewPerimeter({ ...newPerimeter, description: e.target.value })}
+                  placeholder="Informations supplémentaires..."
+                  className="mt-1 h-8 text-sm bg-card border-border/50 text-foreground"
+                />
               </div>
             </div>
 
-            {/* Carte - Main Area */}
-            <div className="col-span-2 relative">
+            {/* Carte - prend tout l'espace restant */}
+            <div className="flex-1 min-h-0 p-3">
               <FieldMapDrawer
                 onSave={handleSavePerimeter}
-                existingCoordinates={editingPerimeter?.coordinates}
-                compact={true}
+                initialPolygon={editingPerimeter?.coordinates ?? []}
+                height="100%"
               />
             </div>
           </div>

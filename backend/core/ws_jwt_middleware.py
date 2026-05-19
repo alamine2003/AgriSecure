@@ -16,10 +16,18 @@ def _get_user(token: str):
 class JwtAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
         token = None
-        query_string = scope.get("query_string", b"").decode("utf-8")
-        query = parse_qs(query_string)
-        if "token" in query and query["token"]:
-            token = query["token"][0]
+
+        # Priorité 1 : subprotocol WebSocket — le token n'apparaît jamais dans l'URL
+        subprotocols = scope.get("subprotocols", [])
+        if subprotocols:
+            token = subprotocols[0]
+
+        # Priorité 2 : query string (rétro-compatibilité)
+        if not token:
+            query_string = scope.get("query_string", b"").decode("utf-8")
+            params = parse_qs(query_string)
+            if "token" in params and params["token"]:
+                token = params["token"][0]
 
         if token:
             try:
@@ -30,4 +38,3 @@ class JwtAuthMiddleware(BaseMiddleware):
             scope["user"] = AnonymousUser()
 
         return await super().__call__(scope, receive, send)
-

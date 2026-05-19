@@ -49,7 +49,7 @@ export default function MaintenancierDashboardV3() {
 
   if (kpiLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50">
+      <div className="flex items-center justify-center py-24">
         <div className="text-center space-y-4">
           <div className="relative">
             <div className="w-20 h-20 mx-auto">
@@ -177,7 +177,7 @@ export default function MaintenancierDashboardV3() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 p-6 space-y-8">
+    <div className="space-y-6">
       {/* Header avec glassmorphism */}
       <div className="relative overflow-hidden rounded-3xl bg-white/60 backdrop-blur-xl border border-white/20 shadow-2xl p-8">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10" />
@@ -516,22 +516,6 @@ export default function MaintenancierDashboardV3() {
         </div>
       </div>
 
-      <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: linear-gradient(to bottom, #3b82f6, #6366f1);
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: linear-gradient(to bottom, #2563eb, #4f46e5);
-        }
-      `}</style>
     </div>
   );
 }

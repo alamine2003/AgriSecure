@@ -1,4 +1,9 @@
 services:
+
+  # ============================================================
+  # APPLICATION
+  # ============================================================
+
   backend:
     build:
       context: ./backend
@@ -8,27 +13,25 @@ services:
     env_file:
       - .env
     environment:
-      - DEBUG=1
       - DJANGO_SETTINGS_MODULE=core.settings.dev
-      - DATABASE_URL=postgres://${POSTGRES_USER:-surveillance_user}:${POSTGRES_PASSWORD:-StrongPass123!}@postgres:5432/${POSTGRES_DB:-surveillance_db}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-surveillance_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-surveillance_db}
       - DB_HOST=postgres
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
-      - CELERY_RESULT_BACKEND=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
+    # Webcam Logitech C920 — attachée via usbipd à WSL2
     devices:
       - /dev/video0:/dev/video0
     group_add:
       - "${VIDEO_GID:-44}"
-    ports:
-      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: python manage.py runserver 0.0.0.0:8000
+    command: daphne -b 0.0.0.0 -p 8000 core.asgi:application
     networks:
       - surveillance_net
     restart: unless-stopped
@@ -41,21 +44,20 @@ services:
     env_file:
       - .env
     environment:
-      - DEBUG=1
       - DJANGO_SETTINGS_MODULE=core.settings.dev
-      - DATABASE_URL=postgres://${POSTGRES_USER:-surveillance_user}:${POSTGRES_PASSWORD:-StrongPass123!}@postgres:5432/${POSTGRES_DB:-surveillance_db}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-surveillance_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-surveillance_db}
       - DB_HOST=postgres
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
-      - CELERY_RESULT_BACKEND=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A core worker -l info --concurrency=2
+    command: celery -A core worker -l info --concurrency=2 -E
     networks:
       - surveillance_net
     restart: unless-stopped
@@ -68,15 +70,14 @@ services:
     env_file:
       - .env
     environment:
-      - DEBUG=1
       - DJANGO_SETTINGS_MODULE=core.settings.dev
-      - DATABASE_URL=postgres://${POSTGRES_USER:-surveillance_user}:${POSTGRES_PASSWORD:-StrongPass123!}@postgres:5432/${POSTGRES_DB:-surveillance_db}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-surveillance_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-surveillance_db}
       - DB_HOST=postgres
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
-      - CELERY_RESULT_BACKEND=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -115,12 +116,16 @@ services:
       - surveillance_net
     restart: unless-stopped
 
+  # ============================================================
+  # DONNÉES
+  # ============================================================
+
   postgres:
     image: postgres:15-alpine
     env_file:
       - .env
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -134,13 +139,13 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-RedisPass456!}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-RedisPass456!}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -149,17 +154,17 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
     command: server /data --console-address ":9001"
     env_file:
       - .env
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -167,36 +172,218 @@ services:
       - surveillance_net
     restart: unless-stopped
 
+  # ============================================================
+  # ADMINISTRATION
+  # ============================================================
+
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:8.14
     env_file:
       - .env
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@local.dev}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-PgAdmin789!}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./pgadmin/pgpass:/pgpass:ro
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - surveillance_net
     restart: unless-stopped
 
   flower:
-    image: mher/flower:latest
+    image: mher/flower:2.0.1
     env_file:
       - .env
     environment:
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
-      - FLOWER_BASIC_AUTH=${FLOWER_USER:-flower_admin}:${FLOWER_PASSWORD:-Flower321!}
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - FLOWER_BASIC_AUTH=${FLOWER_USER:-flower_admin}:${FLOWER_PASSWORD}
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     depends_on:
       - redis
-      - backend
     networks:
       - surveillance_net
     restart: unless-stopped
+
+  # ============================================================
+  # MONITORING
+  # ============================================================
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: surveillance_alertmanager
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./monitoring/alertmanager:/etc/alertmanager:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--cluster.advertise-address=0.0.0.0:9093'
+    networks:
+      - surveillance_net
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: surveillance_prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus_data:/prometheus
+    networks:
+      - surveillance_net
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: surveillance_grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_LOG_LEVEL=info
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/surveillance-overview.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - surveillance_net
+    depends_on:
+      - prometheus
+      - loki
+
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: surveillance_loki
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    networks:
+      - surveillance_net
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: surveillance_postgres_exporter
+    restart: unless-stopped
+    environment:
+      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER:-surveillance_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-surveillance_db}?sslmode=disable
+    ports:
+      - "127.0.0.1:9187:9187"
+    depends_on:
+      - postgres
+    networks:
+      - surveillance_net
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: surveillance_redis_exporter
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:9121:9121"
+    depends_on:
+      - redis
+    networks:
+      - surveillance_net
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.3.0
+    container_name: surveillance_nginx_exporter
+    restart: unless-stopped
+    command:
+      - '-nginx.scrape-uri=http://nginx:80/stub_status'
+    ports:
+      - "127.0.0.1:9113:9113"
+    depends_on:
+      - nginx
+    networks:
+      - surveillance_net
+
+  # ============================================================
+  # MONITORING LINUX UNIQUEMENT
+  # Démarrer avec : docker compose --profile linux up
+  # Ces services montent /proc /sys /var/run/docker.sock
+  # qui n'existent pas sous Windows/macOS Docker Desktop.
+  # ============================================================
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: surveillance_promtail
+    restart: unless-stopped
+    profiles: [linux]
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - surveillance_net
+    depends_on:
+      - loki
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: surveillance_cadvisor
+    restart: unless-stopped
+    profiles: [linux]
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    privileged: true
+    networks:
+      - surveillance_net
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: surveillance_node_exporter
+    restart: unless-stopped
+    profiles: [linux]
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - surveillance_net
 
 networks:
   surveillance_net:
@@ -207,3 +394,8 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  pgadmin_data:
+  alertmanager_data:

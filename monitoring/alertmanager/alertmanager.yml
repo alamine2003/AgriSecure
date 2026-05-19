@@ -1,0 +1,138 @@
+# ============================================================
+# Alertmanager — AgriWatch
+# Gestion centralisée des alertes avec email + anti-spam
+# Variables à définir dans .env :
+#   ALERT_SMTP_HOST, ALERT_SMTP_PORT, ALERT_SMTP_USER
+#   ALERT_SMTP_PASSWORD, ADMIN_EMAIL
+# ============================================================
+
+global:
+  # SMTP — Gmail (changer selon votre provider)
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'agriwatch.alerts@gmail.com'
+  smtp_auth_username: 'agriwatch.alerts@gmail.com'
+  smtp_auth_password: 'VOTRE_MOT_DE_PASSE_APP_GMAIL'
+  smtp_require_tls: true
+  smtp_hello: 'agriwatch'
+  resolve_timeout: 5m
+
+# ── Templates HTML personnalisés ──────────────────────────────
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# ── Routage des alertes ───────────────────────────────────────
+route:
+  # Regroupement pour éviter la surcharge (anti-spam)
+  group_by: ['alertname', 'severity', 'service']
+  group_wait: 30s           # Délai avant envoi initial du groupe
+  group_interval: 10m       # Délai entre envois pour le même groupe
+  repeat_interval: 6h       # Répéter les alertes non résolues
+
+  # Récepteur par défaut
+  receiver: 'admin-default'
+
+  routes:
+    # ── Alertes CRITIQUES → email immédiat + court repeat ──
+    - matchers:
+        - severity="critical"
+      receiver: 'admin-critical'
+      group_wait: 10s
+      group_interval: 5m
+      repeat_interval: 1h
+      continue: false
+
+    # ── Alertes BUSINESS (surveillance) → agrégation 5min ──
+    - matchers:
+        - team="surveillance"
+      receiver: 'admin-surveillance'
+      group_wait: 2m
+      group_interval: 10m
+      repeat_interval: 4h
+      continue: false
+
+    # ── Alertes INFO → digest quotidien (anti-pollution) ──
+    - matchers:
+        - severity="info"
+      receiver: 'admin-digest'
+      group_wait: 1h
+      group_interval: 24h
+      repeat_interval: 24h
+      continue: false
+
+    # ── Alertes WARNING → fréquence modérée ──
+    - matchers:
+        - severity="warning"
+      receiver: 'admin-default'
+      group_wait: 1m
+      repeat_interval: 3h
+
+# ── Règles d'inhibition (évite les avalanches) ───────────────
+inhibit_rules:
+  # Si le backend est down → inhibe les alertes qui en découlent
+  - source_matchers:
+      - alertname="BackendDown"
+    target_matchers:
+      - alertname=~"HighErrorRate|HighResponseTime|DatabaseConnectionIssues|CeleryDown"
+    equal: []
+
+  # Si PostgreSQL est down → inhibe les erreurs DB Django
+  - source_matchers:
+      - alertname="PostgreSQLDown"
+    target_matchers:
+      - alertname="DatabaseConnectionIssues"
+    equal: []
+
+  # Critical inhibe Warning pour le même service
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="warning"
+    equal: ['service']
+
+  # Critical inhibe Info pour le même service
+  - source_matchers:
+      - severity="critical"
+    target_matchers:
+      - severity="info"
+    equal: ['service']
+
+# ── Récepteurs ────────────────────────────────────────────────
+receivers:
+  # Récepteur par défaut (warning)
+  - name: 'admin-default'
+    email_configs:
+      - to: 'mouhamedalamineberre@gmail.com'
+        send_resolved: true
+        html: '{{ template "agriwatch.email.html" . }}'
+        headers:
+          Subject: '[AgriWatch] ⚠️ {{ .GroupLabels.alertname }} — {{ .GroupLabels.service }}'
+
+  # Récepteur critique (immédiat)
+  - name: 'admin-critical'
+    email_configs:
+      - to: 'mouhamedalamineberre@gmail.com'
+        send_resolved: true
+        html: '{{ template "agriwatch.email.html" . }}'
+        headers:
+          Subject: '[AgriWatch] 🚨 CRITIQUE — {{ .CommonAnnotations.summary }}'
+
+  # Récepteur surveillance/business
+  - name: 'admin-surveillance'
+    email_configs:
+      - to: 'mouhamedalamineberre@gmail.com'
+        send_resolved: true
+        html: '{{ template "agriwatch.email.html" . }}'
+        headers:
+          Subject: '[AgriWatch] 🔍 Surveillance — {{ .GroupLabels.alertname }}'
+
+  # Digest quotidien (alertes info)
+  - name: 'admin-digest'
+    email_configs:
+      - to: 'mouhamedalamineberre@gmail.com'
+        send_resolved: false
+        html: '{{ template "agriwatch.email.html" . }}'
+        headers:
+          Subject: '[AgriWatch] 📋 Digest Info — {{ len .Alerts }} alertes groupées'
+
+# ── Silencieux pré-configurés (archivage automatique) ────────
+# Ajouter via l'UI Alertmanager ou l'API pour les alertes récurrentes connues

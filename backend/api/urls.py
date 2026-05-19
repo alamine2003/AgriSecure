@@ -30,7 +30,15 @@ def health_check(request):
         services["redis"] = "down"
         ok = False
 
-    services["celery"] = "unknown"
+    try:
+        from core.celery import app as celery_app
+        i = celery_app.control.inspect(timeout=1.0)
+        ping_result = i.ping()
+        services["celery"] = "up" if ping_result else "down"
+        if not ping_result:
+            ok = False
+    except Exception:
+        services["celery"] = "unknown"
 
     return JsonResponse({"status": "ok" if ok else "degraded", "services": services}, status=200 if ok else 503)
 

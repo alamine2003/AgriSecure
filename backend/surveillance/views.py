@@ -1,19 +1,34 @@
 import os
+import logging
 from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.http import Http404, StreamingHttpResponse
+
+logger = logging.getLogger(__name__)
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.throttling import AnonRateThrottle
+
+class RegistrationRateThrottle(AnonRateThrottle):
+    scope = 'registration'
+from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Avg, Q
 from minio import Minio
+
+
+class StandardPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 200
 from .models import Camera, Detection, Alert, InstallationAppointment, AgentRegistrationRequest, AuditLog
 from .serializers import CameraSerializer, DetectionSerializer, AlertSerializer, InstallationAppointmentSerializer, AgentRegistrationRequestSerializer, AuditLogSerializer
+from .audit import log_action
 from users.permissions import (
     IsOwnerOrMaintenancier, IsAgentAgricole, IsMaintenancier,
     CanManageOwnCameras, CanManageOwnDetections, CanManageOwnAlerts,
@@ -31,26 +46,31 @@ class CameraViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated(), MustChangePasswordPermission(), IsOwnerOrMaintenancier()]
 
     def get_queryset(self):
+        qs = Camera.objects.select_related('agent').order_by('-id')
         if self.request.user.role == 'maintenancier':
-            return Camera.objects.all()
-        return Camera.objects.filter(agent=self.request.user)
+            return qs
+        return qs.filter(agent=self.request.user)
 
     def perform_create(self, serializer):
         agent = serializer.validated_data.get("agent")
         if agent is None:
             raise ValidationError({"agent_id": "Ce champ est requis."})
-        serializer.save(agent=agent)
+        camera = serializer.save(agent=agent)
+        log_action(self.request.user, 'CREATE_CAMERA', camera, self.request)
 
 class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = DetectionSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['camera', 'danger_level', 'label', 'is_alert']
     ordering_fields = ['detected_at', 'confidence']
+    pagination_class = StandardPagination
 
     def get_permissions(self):
-        return [IsAuthenticated(), MustChangePasswordPermission(), IsAgentAgricole()]
+        return [IsAuthenticated(), MustChangePasswordPermission()]
 
     def get_queryset(self):
+        if self.request.user.role == 'maintenancier' or self.request.user.is_superuser:
+            return Detection.objects.all()
         return Detection.objects.filter(agent=self.request.user)
 
     @action(detail=True, methods=['get'])
@@ -88,6 +108,7 @@ class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
 
 class AlertViewSet(viewsets.ModelViewSet):
     serializer_class = AlertSerializer
+    pagination_class = StandardPagination
 
     def get_permissions(self):
         return [IsAuthenticated(), MustChangePasswordPermission(), IsAgentAgricole()]
@@ -185,8 +206,8 @@ class InstallationAppointmentViewSet(viewsets.ModelViewSet):
                 content_type='appointment',
                 object_id=str(appointment.id),
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Notification installation terminée non envoyée: %s", exc)
 
         # Log d'audit
         AuditLog.objects.create(
@@ -212,7 +233,7 @@ class InstallationAppointmentViewSet(viewsets.ModelViewSet):
             'message': 'Installation terminée avec succès',
             'appointment': InstallationAppointmentSerializer(appointment).data,
             'cameras_created': cameras_created,
-            'agent_activated': not agent.is_active
+            'agent_activated': agent.is_active
         }, status=status.HTTP_200_OK)
 
 
@@ -267,15 +288,15 @@ class AgentDashboardViewSet(viewsets.ViewSet):
             created_at__gte=timezone.now() - timedelta(days=7)
         ).count()
 
+        last = (Detection.objects.filter(agent=request.user)
+                .order_by('-detected_at')
+                .values('detected_at')
+                .first())
         return Response({
             'cameras_count': user_cameras,
             'weekly_detections': user_detections,
             'weekly_alerts': user_alerts,
-            'last_detection': Detection.objects.filter(
-                agent=request.user
-            ).order_by('-detected_at').first().detected_at if Detection.objects.filter(
-                agent=request.user
-            ).exists() else None
+            'last_detection': last['detected_at'] if last else None,
         })
 
 
@@ -285,6 +306,12 @@ class AgentRegistrationRequestViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['status', 'region']
     ordering_fields = ['created_at']
+    pagination_class = StandardPagination
+
+    def get_throttles(self):
+        if self.action == 'create':
+            return [RegistrationRateThrottle()]
+        return super().get_throttles()
 
     def get_permissions(self):
         if self.action == 'create':
@@ -337,13 +364,29 @@ class AgentRegistrationRequestViewSet(viewsets.ModelViewSet):
             registration_request.created_user = user
             registration_request.save()
 
+            # Créer le canal de notification EMAIL pour l'agent
+            try:
+                from notifications.models import NotificationChannel
+                NotificationChannel.objects.get_or_create(
+                    user=user,
+                    channel_type='EMAIL',
+                    defaults={'is_enabled': True, 'configuration': {'email': user.email}},
+                )
+            except Exception as exc:
+                logger.warning("Création canal email agent %s échouée: %s", user.email, exc)
+
             # Notification in-app
             try:
                 from notifications.services import notify_registration_approved, notify_appointment_scheduled
                 notify_registration_approved(user)
                 notify_appointment_scheduled(user, appointment)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Notification approbation agent %s échouée: %s", user.email, exc)
+
+            log_action(request.user, 'APPROVE_REQUEST', registration_request, request,
+                       {'created_user_id': str(user.id)})
+            log_action(request.user, 'CREATE_AGENT', user, request,
+                       {'from_request': str(registration_request.id)})
 
             return Response({
                 'status': 'success',
@@ -375,6 +418,9 @@ class AgentRegistrationRequestViewSet(viewsets.ModelViewSet):
         registration_request.processed_at = timezone.now()
         registration_request.save()
 
+        log_action(request.user, 'REJECT_REQUEST', registration_request, request,
+                   {'reason': reason})
+
         return Response({
             'status': 'success',
             'message': 'Demande rejetée'
@@ -402,6 +448,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['action', 'target_type', 'user']
     ordering_fields = ['created_at']
     ordering = ['-created_at']
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         return AuditLog.objects.select_related('user').all()

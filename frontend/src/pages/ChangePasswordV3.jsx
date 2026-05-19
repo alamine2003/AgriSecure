@@ -114,15 +114,15 @@ const ChangePasswordV3 = () => {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center px-4 py-10 bg-gradient-to-br from-gray-50 via-white to-green-50">
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-10 bg-background">
       {/* Background Effects */}
       <div className="absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,197,94,0.15),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(16,185,129,0.10),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,197,94,0.08),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(16,185,129,0.05),transparent_50%)]" />
       </div>
 
       <div className="w-full max-w-lg">
         {/* Header Card */}
-        <div className="mb-6 bg-white/80 backdrop-blur-xl border border-white/20 rounded-3xl shadow-xl p-6">
+        <div className="mb-6 bg-card/80 backdrop-blur-xl border border-border/20 rounded-3xl shadow-xl p-6">
           <div className="flex items-center gap-3 mb-3">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur-lg opacity-50"></div>
@@ -131,7 +131,7 @@ const ChangePasswordV3 = () => {
               </div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-green-900 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold text-foreground">
                 Sécurité du Compte
               </h1>
               <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
@@ -143,10 +143,10 @@ const ChangePasswordV3 = () => {
         </div>
 
         {/* Main Card */}
-        <Card className={`bg-white/90 backdrop-blur-xl border-2 border-white/20 shadow-2xl ${shake ? "animate-shake" : ""}`}>
-          <CardHeader className="space-y-2 border-b-2 border-dashed bg-gradient-to-r from-green-50 to-emerald-50">
+        <Card className={`shadow-2xl ${shake ? "animate-shake" : ""}`}>
+          <CardHeader className="space-y-2 border-b-2 border-dashed bg-green-950/20 rounded-t-xl">
             <CardTitle className="flex items-center gap-2 text-xl">
-              <Lock className="w-6 h-6 text-green-600" />
+              <Lock className="w-6 h-6 text-green-500" />
               Changement de Mot de Passe Requis
             </CardTitle>
             <CardDescription className="text-sm">
@@ -156,14 +156,14 @@ const ChangePasswordV3 = () => {
 
           <CardContent className="pt-6">
             {/* Alert Info */}
-            <div className="mb-6 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+            <div className="mb-6 p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-900">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-blue-600 mt-0.5" />
+                <AlertTriangle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-blue-900 mb-1">
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1">
                     Mot de passe actuel : Votre NIN
                   </p>
-                  <p className="text-xs text-blue-800">
+                  <p className="text-xs text-blue-800 dark:text-blue-400">
                     Votre mot de passe initial est votre Numéro d'Identification National (NIN).
                     Choisissez un nouveau mot de passe fort et unique.
                   </p>
@@ -188,7 +188,7 @@ const ChangePasswordV3 = () => {
                 <button
                   type="button"
                   onClick={() => setShowOld(!showOld)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showOld ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -210,7 +210,7 @@ const ChangePasswordV3 = () => {
                   <button
                     type="button"
                     onClick={() => setShowNew(!showNew)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     {showNew ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -220,17 +220,17 @@ const ChangePasswordV3 = () => {
                 {newPassword && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Force du mot de passe:</span>
+                      <span className="text-muted-foreground">Force du mot de passe :</span>
                       <span className={`font-bold ${
-                        strength.level >= 4 ? 'text-green-600' :
-                        strength.level >= 3 ? 'text-blue-600' :
-                        strength.level >= 2 ? 'text-yellow-600' :
-                        'text-red-600'
+                        strength.level >= 4 ? 'text-green-500' :
+                        strength.level >= 3 ? 'text-blue-500' :
+                        strength.level >= 2 ? 'text-yellow-500' :
+                        'text-red-500'
                       }`}>
                         {strength.label}
                       </span>
                     </div>
-                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-500 ${strength.color}`}
                         style={{ width: `${(strength.level / 5) * 100}%` }}
@@ -240,23 +240,23 @@ const ChangePasswordV3 = () => {
                 )}
 
                 {/* Recommandations */}
-                <div className="p-3 rounded-lg bg-gray-50 border border-gray-200">
-                  <p className="text-xs font-semibold text-gray-700 mb-2">Recommandations:</p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li className={`flex items-center gap-2 ${newPassword.length >= 8 ? 'text-green-600' : ''}`}>
-                      {newPassword.length >= 8 ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-gray-400" />}
+                <div className="p-3 rounded-lg bg-muted border border-border">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">Recommandations :</p>
+                  <ul className="text-xs text-muted-foreground space-y-1">
+                    <li className={`flex items-center gap-2 ${newPassword.length >= 8 ? 'text-green-500' : ''}`}>
+                      {newPassword.length >= 8 ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-border" />}
                       Au moins 8 caractères
                     </li>
-                    <li className={`flex items-center gap-2 ${/[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) ? 'text-green-600' : ''}`}>
-                      {/[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-gray-400" />}
+                    <li className={`flex items-center gap-2 ${/[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) ? 'text-green-500' : ''}`}>
+                      {/[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-border" />}
                       Majuscules et minuscules
                     </li>
-                    <li className={`flex items-center gap-2 ${/[0-9]/.test(newPassword) ? 'text-green-600' : ''}`}>
-                      {/[0-9]/.test(newPassword) ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-gray-400" />}
+                    <li className={`flex items-center gap-2 ${/[0-9]/.test(newPassword) ? 'text-green-500' : ''}`}>
+                      {/[0-9]/.test(newPassword) ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-border" />}
                       Au moins un chiffre
                     </li>
-                    <li className={`flex items-center gap-2 ${/[^a-zA-Z0-9]/.test(newPassword) ? 'text-green-600' : ''}`}>
-                      {/[^a-zA-Z0-9]/.test(newPassword) ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-gray-400" />}
+                    <li className={`flex items-center gap-2 ${/[^a-zA-Z0-9]/.test(newPassword) ? 'text-green-500' : ''}`}>
+                      {/[^a-zA-Z0-9]/.test(newPassword) ? <CheckCircle className="w-3 h-3" /> : <span className="w-3 h-3 rounded-full border-2 border-border" />}
                       Caractère spécial (@, #, !, etc.)
                     </li>
                   </ul>
@@ -278,7 +278,7 @@ const ChangePasswordV3 = () => {
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -288,11 +288,13 @@ const ChangePasswordV3 = () => {
               {confirmPassword && (
                 <div className={`p-3 rounded-lg border-2 ${
                   newPassword === confirmPassword
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-red-50 border-red-200'
+                    ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900'
+                    : 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900'
                 }`}>
                   <p className={`text-xs font-semibold flex items-center gap-2 ${
-                    newPassword === confirmPassword ? 'text-green-700' : 'text-red-700'
+                    newPassword === confirmPassword
+                      ? 'text-green-700 dark:text-green-300'
+                      : 'text-red-700 dark:text-red-300'
                   }`}>
                     {newPassword === confirmPassword ? (
                       <>
@@ -312,7 +314,8 @@ const ChangePasswordV3 = () => {
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 hover:from-green-600 hover:via-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-300 py-6 text-lg"
+                variant="gradient-green"
+                className="w-full py-6 text-lg"
                 disabled={loading}
               >
                 {loading ? (

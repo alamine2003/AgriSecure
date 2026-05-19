@@ -1,0 +1,32 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: agriwatch-admin-email
+    receivers:
+      - uid: agriwatch-email-receiver
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: mouhamedalamineberre@gmail.com
+          singleEmail: false
+          subject: |
+            [AgriWatch] {{ .Status | title }} — {{ .CommonLabels.alertname }}
+            ({{ .CommonLabels.severity | upper }})
+          message: |
+            {{ range .Alerts }}
+            **{{ .Annotations.summary }}**
+            {{ .Annotations.description }}
+            Sévérité : {{ .Labels.severity }}  |  Service : {{ .Labels.service }}
+            Début : {{ .StartsAt.Format "02/01/2006 15:04" }}
+            ---
+            {{ end }}
+
+  - orgId: 1
+    name: grafana-default-email
+    receivers:
+      - uid: grafana-default-email-uid
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: mouhamedalamineberre@gmail.com

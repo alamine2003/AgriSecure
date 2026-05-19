@@ -144,7 +144,7 @@ export default function AgentsManagementV3() {
   ]
 
   return (
-    <div className="min-h-screen p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="relative overflow-hidden rounded-3xl border border-border/50 p-8">
         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.07] via-card to-card" />
@@ -255,7 +255,8 @@ export default function AgentsManagementV3() {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-orange-600 hover:to-teal-700 shadow-lg shadow-amber-500/20 text-white transition-all duration-300"
+                variant="gradient"
+                className="w-full"
                 disabled={createMutation.isPending}
               >
                 {createMutation.isPending ? "Creation..." : "Creer l'Agent"}
@@ -471,7 +472,8 @@ export default function AgentsManagementV3() {
                 <div className="flex gap-3 pt-4 border-t border-border/50">
                   <Button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 shadow-lg shadow-sky-500/20 text-white transition-all duration-300"
+                    variant="gradient-info"
+                    className="flex-1"
                     disabled={updateMutation.isPending}
                   >
                     {updateMutation.isPending ? "Enregistrement..." : "Enregistrer"}

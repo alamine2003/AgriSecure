@@ -2,6 +2,15 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q, Count, Avg
+
+
+def _parse_coords(coordinates):
+    """Retourne les coordonnées sous forme de liste, que ce soit un JSONField ou une string."""
+    if not coordinates:
+        return []
+    if isinstance(coordinates, str):
+        return json.loads(coordinates)
+    return coordinates
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -57,7 +66,7 @@ class FieldPerimeterViewSet(viewsets.ModelViewSet):
         
         try:
             # Calculer la superficie avec la formule de Shoelace (sans GDAL)
-            coords = json.loads(perimeter.coordinates)
+            coords = _parse_coords(perimeter.coordinates)
             if len(coords) < 3:
                 return Response(
                     {'error': 'Un périmètre nécessite au moins 3 points'},
@@ -102,13 +111,13 @@ class FieldPerimeterViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            coords = json.loads(perimeter.coordinates)
+            coords = _parse_coords(perimeter.coordinates)
             if len(coords) < 3:
                 return Response(
                     {'error': 'Un périmètre nécessite au moins 3 points'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             # Calculer le centre (moyenne des coordonnées) — format [lng, lat]
             avg_lat = sum(point[1] for point in coords) / len(coords)
             avg_lng = sum(point[0] for point in coords) / len(coords)
@@ -138,8 +147,8 @@ class FieldPerimeterViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            coords = json.loads(perimeter.coordinates)
-            
+            coords = _parse_coords(perimeter.coordinates)
+
             validation_result = {
                 'is_valid': True,
                 'errors': [],
@@ -202,7 +211,7 @@ class FieldPerimeterViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            coords = json.loads(perimeter.coordinates) if isinstance(perimeter.coordinates, str) else perimeter.coordinates
+            coords = _parse_coords(perimeter.coordinates)
         except (json.JSONDecodeError, TypeError):
             coords = []
 
@@ -239,7 +248,7 @@ class FieldPerimeterViewSet(viewsets.ModelViewSet):
         for perimeter in perimeters:
             if perimeter.coordinates:
                 try:
-                    coords = json.loads(perimeter.coordinates)
+                    coords = _parse_coords(perimeter.coordinates)
                     map_data.append({
                         'id': str(perimeter.id),
                         'name': perimeter.name,
@@ -296,7 +305,7 @@ class FieldPerimeterViewSet(viewsets.ModelViewSet):
                     })
                     continue
                 
-                coords = json.loads(perimeter.coordinates)
+                coords = _parse_coords(perimeter.coordinates)
                 is_valid = len(coords) >= 3
                 
                 results.append({

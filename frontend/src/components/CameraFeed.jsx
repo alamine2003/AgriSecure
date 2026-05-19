@@ -3,17 +3,47 @@ import React, { useRef, useEffect, useState } from 'react';
 const CameraFeed = ({ cameraId }) => {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
-  const [ws, setWs] = useState(null);
+  const detectionsRef = useRef([]);
   const [isConnected, setIsConnected] = useState(false);
-  const [lastDetections, setLastDetections] = useState([]);
+
+  const drawBoundingBoxes = (detections) => {
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    if (!canvas || !img) return;
+
+    // Dimensionner le canvas une seule fois (ou quand la résolution change)
+    if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+    }
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    detections.forEach((det) => {
+      const [x1, y1, x2, y2] = det.bbox;
+      const color = det.color || '#39ff14';
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+      const label = `${det.label} ${Math.round(det.confidence * 100)}%`;
+      ctx.font = 'bold 13px Arial';
+      const tw = ctx.measureText(label).width;
+      ctx.fillStyle = color;
+      ctx.fillRect(x1, y1 - 20, tw + 8, 20);
+      ctx.fillStyle = '#000';
+      ctx.fillText(label, x1 + 4, y1 - 5);
+    });
+  };
 
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    const token = localStorage.getItem('access_token');
-    const wsUrl = `${protocol}//${host}/ws/surveillance/${cameraId}/?token=${encodeURIComponent(token || '')}`;
-
-    const socket = new WebSocket(wsUrl);
+    const token = localStorage.getItem('access_token') || '';
+    // Token passé via subprotocol WebSocket — n'apparaît pas dans les URLs ni les logs
+    const wsUrl = `${protocol}//${window.location.host}/ws/surveillance/${cameraId}/`;
+    const socket = token ? new WebSocket(wsUrl, [token]) : new WebSocket(wsUrl);
 
     socket.onopen = () => {
       setIsConnected(true);
@@ -21,45 +51,27 @@ const CameraFeed = ({ cameraId }) => {
     };
 
     socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch {
+        return;
+      }
       if (data.type === 'camera_frame') {
-        imgRef.current.src = data.frame_b64;
-        setLastDetections(data.detections);
-        drawBoundingBoxes(data.detections);
+        // Stocker les détections sans passer par le state React (pas de re-render)
+        detectionsRef.current = data.detections || [];
+        // Mettre à jour l'image — drawBoundingBoxes sera appelé dans onLoad
+        if (imgRef.current) {
+          imgRef.current.src = data.frame_b64;
+        }
       }
     };
 
     socket.onclose = () => setIsConnected(false);
-    setWs(socket);
+    socket.onerror = () => setIsConnected(false);
 
     return () => socket.close();
   }, [cameraId]);
-
-  const drawBoundingBoxes = (detections) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    detections.forEach((det) => {
-      const [x1, y1, x2, y2] = det.bbox;
-      const color = det.color || '#639922';
-
-      // Draw box
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-
-      // Draw label
-      ctx.fillStyle = color;
-      ctx.font = '16px Arial';
-      const label = `${det.label} (${Math.round(det.confidence * 100)}%)`;
-      const textWidth = ctx.measureText(label).width;
-      ctx.fillRect(x1, y1 - 25, textWidth + 10, 25);
-      ctx.fillStyle = 'white';
-      ctx.fillText(label, x1 + 5, y1 - 7);
-    });
-  };
 
   return (
     <div className="relative border-4 border-slate-800 rounded-lg overflow-hidden bg-black aspect-video">
@@ -67,18 +79,13 @@ const CameraFeed = ({ cameraId }) => {
         ref={imgRef}
         alt="Camera Stream"
         className="w-full h-full object-contain"
-        onLoad={() => {
-          if (imgRef.current && canvasRef.current) {
-            canvasRef.current.width = imgRef.current.naturalWidth;
-            canvasRef.current.height = imgRef.current.naturalHeight;
-          }
-        }}
+        onLoad={() => drawBoundingBoxes(detectionsRef.current)}
       />
       <canvas
         ref={canvasRef}
         className="absolute top-0 left-0 w-full h-full pointer-events-none"
       />
-      
+
       <div className="absolute top-4 left-4 flex items-center gap-2">
         <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
         <span className="text-white text-xs font-bold shadow-lg uppercase">

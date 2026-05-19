@@ -159,7 +159,7 @@ export default function RegistrationRequestsV3() {
   ]
 
   return (
-    <div className="min-h-screen p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="relative overflow-hidden rounded-3xl border border-border/50 p-8">
         <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.07] via-card to-card" />
@@ -380,7 +380,8 @@ export default function RegistrationRequestsV3() {
                       <div className="space-y-3">
                         <Button
                           onClick={() => handleApprove(request)}
-                          className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-orange-600 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                          variant="gradient"
+                          className="w-full"
                           disabled={approveMutation.isPending}
                         >
                           <CheckCircle className="w-5 h-5 mr-2" />
@@ -479,7 +480,8 @@ export default function RegistrationRequestsV3() {
               <div className="flex gap-3 pt-4 border-t border-border/50">
                 <Button
                   onClick={confirmReject}
-                  className="flex-1 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white shadow-lg"
+                  variant="gradient-destructive"
+                  className="flex-1"
                   disabled={rejectMutation.isPending || !rejectReason.trim()}
                 >
                   {rejectMutation.isPending ? "Rejet..." : "Confirmer le Rejet"}

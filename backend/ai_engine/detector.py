@@ -1,4 +1,5 @@
 import os
+import time
 import threading
 import logging
 from ultralytics import YOLO
@@ -6,6 +7,11 @@ from .danger_scorer import get_danger_score
 from .cache import get_yolo_cache
 
 logger = logging.getLogger(__name__)
+
+try:
+    from core.custom_metrics import yolo_inference_seconds
+except Exception:
+    yolo_inference_seconds = None
 
 class YOLODetector:
     _instance = None
@@ -57,9 +63,11 @@ class YOLODetector:
         # Vérifier le cache en premier
         if self.cache:
             try:
+                import cv2 as _cv2
                 frame_shape = frame_numpy.shape
-                # Échantillon spatial (1 pixel sur 20) au lieu du tobytes() complet (~6 MB pour 1080p)
-                frame_bytes_sample = frame_numpy[::20, ::20].tobytes()
+                # Thumbnail 16×16 — capture bien mieux le contenu que le sous-échantillonnage spatial
+                thumb = _cv2.resize(frame_numpy, (16, 16))
+                frame_bytes_sample = thumb.tobytes()
 
                 cached_detections = self.cache.get_cached_detections(frame_shape, frame_bytes_sample)
                 if cached_detections:
@@ -69,7 +77,10 @@ class YOLODetector:
                 logger.warning(f"Erreur lecture cache YOLO: {e}")
         
         # Pas de cache hit, procéder à la détection
+        _t0 = time.perf_counter()
         results = self.model(frame_numpy, conf=self.conf_threshold, verbose=False)
+        if yolo_inference_seconds:
+            yolo_inference_seconds.observe(time.perf_counter() - _t0)
         detections = []
         
         for result in results:
@@ -93,7 +104,7 @@ class YOLODetector:
                 })
         
         # Mettre en cache les détections pour usage futur
-        if self.cache and detections:
+        if self.cache:
             try:
                 self.cache.cache_detections(frame_shape, frame_bytes_sample, detections)
                 logger.debug("Détections YOLO mises en cache")

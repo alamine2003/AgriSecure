@@ -6,6 +6,11 @@ from .stream_manager import StreamManager
 
 logger = logging.getLogger(__name__)
 
+try:
+    from core.custom_metrics import websocket_connections_active
+except Exception:
+    websocket_connections_active = None
+
 @database_sync_to_async
 def _get_camera_for_user(camera_id, user):
     from surveillance.models import Camera
@@ -39,7 +44,11 @@ class CameraConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
-        await self.accept()
+        # Renvoyer le subprotocol au client (obligatoire si le token a été envoyé via subprotocol)
+        subprotocols = self.scope.get('subprotocols', [])
+        await self.accept(subprotocol=subprotocols[0] if subprotocols else None)
+        if websocket_connections_active:
+            websocket_connections_active.inc()
         logger.info(f"Client connecté au flux caméra {self.camera_id}")
 
     async def disconnect(self, close_code):
@@ -47,10 +56,16 @@ class CameraConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
+        if websocket_connections_active:
+            websocket_connections_active.dec()
         logger.info(f"Client déconnecté du flux caméra {self.camera_id}")
 
     async def receive(self, text_data):
-        data = json.loads(text_data)
+        try:
+            data = json.loads(text_data)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("Message WebSocket non-JSON reçu sur caméra %s", self.camera_id)
+            return
         command = data.get('command')
 
         manager = StreamManager()

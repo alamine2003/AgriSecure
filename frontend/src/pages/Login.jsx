@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import client from '../api/client';
-import { LockKeyhole, Mail, ShieldCheck, Radio, Activity, ArrowRight, ArrowLeft } from "lucide-react"
+import { LockKeyhole, Mail, ShieldCheck, Radio, Activity, ArrowRight, ArrowLeft, KeyRound } from "lucide-react"
 import logoSvg from "@/assets/logo.svg"
 
 import { Button } from "@/components/ui/button"
@@ -10,14 +10,17 @@ import { notify } from "@/lib/notify"
 import loginField from "@/assets/login-field.jpg"
 
 const Login = () => {
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [sessionToken, setSessionToken] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(true);
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/';
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -32,21 +35,72 @@ const Login = () => {
     )
   }, [])
 
-  const handleSubmit = async (e) => {
+  const handleSubmitCredentials = async (e) => {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
 
     try {
-      const normalizedEmail = email.trim().toLowerCase()
-      const response = await client.post('/auth/login/', { email: normalizedEmail, password });
-      const { access, refresh, user } = response.data;
+      const normalizedEmail = email.trim().toLowerCase();
+      const deviceToken = localStorage.getItem('device_token') || undefined;
+      const response = await client.post('/auth/login/', {
+        email: normalizedEmail,
+        password,
+        ...(deviceToken ? { device_token: deviceToken } : {}),
+      });
 
-      if (!access || !refresh || !user) throw new Error('Réponse invalide du serveur');
+      if (!response.data.otp_required) {
+        // Trusted device — tokens returned directly
+        const { access, refresh, user } = response.data;
+        localStorage.setItem('access_token', access);
+        localStorage.setItem('refresh_token', refresh);
+        localStorage.setItem('user', JSON.stringify(user));
+        if (user.must_change_password) {
+          notify.info("Action requise", "Change ton mot de passe pour continuer.", { durationMs: 5000 });
+          navigate('/change-password');
+        } else {
+          const roleLabel = user.role === "maintenancier" ? "Maintenancier" : "Agent agricole";
+          notify.success("Connecté", `Rôle: ${roleLabel}.`);
+          setTimeout(() => navigate('/dashboard', { replace: true }), 100);
+        }
+        return;
+      }
+
+      setSessionToken(response.data.session_token);
+      setStep(2);
+      notify.info("Code envoyé", `Un code à 6 chiffres a été envoyé à ${normalizedEmail}.`, { durationMs: 6000 });
+    } catch (err) {
+      const message =
+        err?.response?.data?.detail ||
+        err?.response?.data?.non_field_errors?.[0] ||
+        "Identifiants invalides ou compte inactif."
+      notify.error("Erreur de connexion", message, { durationMs: 6000 })
+      setShake(true)
+      window.setTimeout(() => setShake(false), 450)
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    if (loading) return;
+    setLoading(true);
+
+    try {
+      const response = await client.post('/auth/verify-otp/', {
+        session_token: sessionToken,
+        otp_code: otpCode,
+        remember_device: rememberDevice,
+      });
+      const { access, refresh, user, device_token } = response.data;
 
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       localStorage.setItem('user', JSON.stringify(user));
+      if (device_token) {
+        localStorage.setItem('device_token', device_token);
+      }
 
       if (user.must_change_password) {
         notify.info("Action requise", "Change ton mot de passe pour continuer.", { durationMs: 5000 })
@@ -59,19 +113,18 @@ const Login = () => {
     } catch (err) {
       const message =
         err?.response?.data?.detail ||
-        err?.response?.data?.non_field_errors?.[0] ||
-        err?.message ||
-        "Identifiants invalides ou compte inactif."
-      notify.error("Erreur de connexion", message, { durationMs: 6000 })
+        "Code invalide ou expiré."
+      notify.error("Vérification échouée", message, { durationMs: 6000 })
       setShake(true)
       window.setTimeout(() => setShake(false), 450)
+      setOtpCode('');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="relative min-h-screen w-full grid lg:grid-cols-2 bg-slate-950 text-white overflow-hidden">
+    <div className="relative h-screen w-full grid lg:grid-cols-2 bg-slate-950 text-white overflow-hidden">
       {/* LEFT — Visual */}
       <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden">
         <img
@@ -161,83 +214,138 @@ const Login = () => {
         <div className={`relative z-10 w-full max-w-md ${shake ? "animate-shake" : ""}`}>
           <div className="mb-8 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
-              Espace sécurisé
+              {step === 1 ? "Espace sécurisé" : "Vérification en 2 étapes"}
             </p>
             <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-              Bienvenue
+              {step === 1 ? "Bienvenue" : "Code OTP"}
             </h2>
             <p className="text-sm text-slate-600">
-              Connectez-vous pour accéder à votre tableau de bord de surveillance.
+              {step === 1
+                ? "Connectez-vous pour accéder à votre tableau de bord de surveillance."
+                : `Entrez le code à 6 chiffres envoyé à ${email.trim().toLowerCase()}.`}
             </p>
           </div>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <FloatingInput
-              id="email"
-              label="Email professionnel"
-              type="email"
-              autoComplete="email"
-              autoCapitalize="none"
-              spellCheck={false}
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              leftSlot={<Mail className="h-4 w-4 text-muted-foreground" />}
-            />
+          {step === 1 ? (
+            <form className="space-y-4" onSubmit={handleSubmitCredentials}>
+              <FloatingInput
+                id="email"
+                label="Email professionnel"
+                type="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                leftSlot={<Mail className="h-4 w-4 text-muted-foreground" />}
+              />
 
-            <FloatingInput
-              id="password"
-              label="Mot de passe"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              shake={shake}
-              leftSlot={<LockKeyhole className="h-4 w-4 text-muted-foreground" />}
-            />
+              <FloatingInput
+                id="password"
+                label="Mot de passe"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                shake={shake}
+                leftSlot={<LockKeyhole className="h-4 w-4 text-muted-foreground" />}
+              />
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="group w-full h-11 bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/20"
-            >
-              {loading ? "Connexion..." : (
-                <>
-                  Se connecter
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </>
-              )}
-            </Button>
-
-            <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-              <button
-                type="button"
-                className="font-medium text-amber-700 hover:text-amber-800 hover:underline underline-offset-4"
-                onClick={() =>
-                  notify.info(
-                    "Mot de passe oublié",
-                    "Contacte un maintenancier pour réinitialiser ton accès."
-                  )
-                }
+              <Button
+                type="submit"
+                disabled={loading}
+                className="group w-full h-11 bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/20"
               >
-                Mot de passe oublié ?
-              </button>
-              <a
-                className="hover:underline underline-offset-4"
-                href="/admin/"
-                target="_blank"
-                rel="noreferrer"
+                {loading ? "Vérification..." : (
+                  <>
+                    Continuer
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </Button>
+
+              <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                <button
+                  type="button"
+                  className="font-medium text-amber-700 hover:text-amber-800 hover:underline underline-offset-4"
+                  onClick={() =>
+                    notify.info(
+                      "Mot de passe oublié",
+                      "Contacte un maintenancier pour réinitialiser ton accès."
+                    )
+                  }
+                >
+                  Mot de passe oublié ?
+                </button>
+                <a
+                  className="hover:underline underline-offset-4"
+                  href="/admin/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Admin Django →
+                </a>
+              </div>
+            </form>
+          ) : (
+            <form className="space-y-4" onSubmit={handleVerifyOTP}>
+              <FloatingInput
+                id="otp"
+                label="Code à 6 chiffres"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                required
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                shake={shake}
+                leftSlot={<KeyRound className="h-4 w-4 text-muted-foreground" />}
+              />
+
+              <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  checked={rememberDevice}
+                  onChange={(e) => setRememberDevice(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-300 text-amber-600 accent-amber-600 cursor-pointer"
+                />
+                <span className="text-xs text-slate-600 group-hover:text-slate-800 transition-colors">
+                  Se souvenir de cet appareil pendant 30 jours
+                </span>
+              </label>
+
+              <Button
+                type="submit"
+                disabled={loading || otpCode.length !== 6}
+                className="group w-full h-11 bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/20"
               >
-                Admin Django →
-              </a>
-            </div>
-          </form>
+                {loading ? "Vérification..." : (
+                  <>
+                    Valider le code
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </Button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  className="text-xs font-medium text-amber-700 hover:text-amber-800 hover:underline underline-offset-4"
+                  onClick={() => { setStep(1); setOtpCode(''); setSessionToken(''); }}
+                >
+                  ← Retour / Renvoyer le code
+                </button>
+              </div>
+            </form>
+          )}
 
           <div className="mt-10 flex items-center gap-3 rounded-xl border border-slate-200 bg-white/60 p-3 backdrop-blur">
             <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
             <p className="text-xs text-slate-600 leading-relaxed">
-              Connexion chiffrée. Vos données et celles de vos exploitations
+              Connexion chiffrée en 2 étapes. Vos données et celles de vos exploitations
               restent confidentielles.
             </p>
           </div>

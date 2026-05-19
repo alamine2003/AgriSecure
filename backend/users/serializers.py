@@ -9,7 +9,7 @@ class UserSerializer(serializers.ModelSerializer):
             'phone', 'role', 'must_change_password',
             'is_active', 'created_at'
         ]
-        read_only_fields = ['id', 'created_at', 'must_change_password', 'role', 'nin', 'email']
+        read_only_fields = ['id', 'created_at', 'must_change_password', 'role', 'nin', 'email', 'is_active']
         # NIN est inclus dans fields et read_only pour affichage uniquement
 
 class UserCreateSerializer(serializers.ModelSerializer):
