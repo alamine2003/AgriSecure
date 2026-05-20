@@ -2,6 +2,24 @@ import uuid
 from django.db import migrations, models
 
 
+def migrate_id_to_uuid(apps, schema_editor):
+    if schema_editor.connection.vendor == 'postgresql':
+        schema_editor.execute("ALTER TABLE reports_report DROP CONSTRAINT reports_report_pkey;")
+        schema_editor.execute("ALTER TABLE reports_report DROP COLUMN id;")
+        schema_editor.execute(
+            "ALTER TABLE reports_report ADD COLUMN id uuid DEFAULT gen_random_uuid() PRIMARY KEY;"
+        )
+
+
+def reverse_id_to_bigint(apps, schema_editor):
+    if schema_editor.connection.vendor == 'postgresql':
+        schema_editor.execute("ALTER TABLE reports_report DROP CONSTRAINT reports_report_pkey;")
+        schema_editor.execute("ALTER TABLE reports_report DROP COLUMN id;")
+        schema_editor.execute(
+            "ALTER TABLE reports_report ADD COLUMN id bigserial PRIMARY KEY;"
+        )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -9,23 +27,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # PostgreSQL ne peut pas caster bigint -> uuid directement.
-        # On supprime la PK existante, on ajoute une colonne uuid, on la définit en PK.
-        migrations.RunSQL(
-            sql=[
-                # Supprimer la contrainte PK et la colonne id auto-increment
-                "ALTER TABLE reports_report DROP CONSTRAINT reports_report_pkey;",
-                "ALTER TABLE reports_report DROP COLUMN id;",
-                # Ajouter la nouvelle colonne uuid avec valeur par défaut
-                "ALTER TABLE reports_report ADD COLUMN id uuid DEFAULT gen_random_uuid() PRIMARY KEY;",
-            ],
-            reverse_sql=[
-                "ALTER TABLE reports_report DROP CONSTRAINT reports_report_pkey;",
-                "ALTER TABLE reports_report DROP COLUMN id;",
-                "ALTER TABLE reports_report ADD COLUMN id bigserial PRIMARY KEY;",
-            ],
+        migrations.RunPython(
+            code=migrate_id_to_uuid,
+            reverse_code=reverse_id_to_bigint,
         ),
-        # Mettre à jour l'état Django pour qu'il reflète le nouveau champ
         migrations.AlterField(
             model_name='report',
             name='id',
