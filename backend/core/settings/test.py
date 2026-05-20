@@ -30,3 +30,6 @@ CHANNEL_LAYERS = {'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}
 
 # Désactiver le throttling en tests
 REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = []
+
+# Forcer le flow OTP en tests (dev.py met BYPASS_OTP=true par défaut)
+BYPASS_OTP = False
