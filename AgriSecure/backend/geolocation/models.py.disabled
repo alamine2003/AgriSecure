@@ -1,0 +1,280 @@
+import uuid
+from django.db import models
+from django.contrib.gis.db import models as gis_models
+from django.contrib.gis.geos import Point, Polygon
+from django.contrib.auth import get_user_model
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+User = get_user_model()
+
+
+class FieldPerimeter(gis_models.Model):
+    """Modèle pour les périmètres de champs avec support GIS"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=200, verbose_name="Nom du périmètre")
+    description = models.TextField(blank=True, verbose_name="Description")
+    
+    # Agent agricole propriétaire
+    agent = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE,
+        limit_choices_to={'role': 'agent_agricole'},
+        verbose_name="Agent agricole"
+    )
+    
+    # Coordonnées géographiques
+    coordinates = gis_models.PolygonField(
+        verbose_name="Coordonnées du périmètre",
+        help_text="Coordonnées GPS définissant le périmètre du champ"
+    )
+    
+    # Point central calculé automatiquement
+    center_point = gis_models.PointField(
+        null=True, blank=True,
+        verbose_name="Point central",
+        help_text="Point central calculé automatiquement"
+    )
+    
+    # Informations sur le terrain
+    area_hectares = models.DecimalField(
+        max_digits=10, 
+        decimal_places=4,
+        validators=[MinValueValidator(0.01)],
+        verbose_name="Surface (hectares)"
+    )
+    
+    # Type de culture
+    CROP_TYPE_CHOICES = (
+        ('CEREALS', 'Céréales'),
+        ('VEGETABLES', 'Légumes'),
+        ('FRUITS', 'Fruits'),
+        ('TUBERS', 'Tubercules'),
+        ('LEGUMES', 'Légumineuses'),
+        ('OTHER', 'Autre'),
+    )
+    crop_type = models.CharField(
+        max_length=20,
+        choices=CROP_TYPE_CHOICES,
+        default='OTHER',
+        verbose_name="Type de culture"
+    )
+    
+    # Statut du périmètre
+    STATUS_CHOICES = (
+        ('ACTIVE', 'Actif'),
+        ('INACTIVE', 'Inactif'),
+        ('MAINTENANCE', 'En maintenance'),
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='ACTIVE',
+        verbose_name="Statut"
+    )
+    
+    # Période de plantation
+    planting_date = models.DateField(null=True, blank=True, verbose_name="Date de plantation")
+    expected_harvest = models.DateField(null=True, blank=True, verbose_name="Récolte prévue")
+    
+    # Données météo et environnement
+    average_rainfall = models.DecimalField(
+        max_digits=6, 
+        decimal_places=2,
+        null=True, blank=True,
+        verbose_name="Pluviométrie moyenne (mm/an)"
+    )
+    soil_type = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="Type de sol"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Périmètre de Champ'
+        verbose_name_plural = 'Périmètres de Champs'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['agent', 'status']),
+            models.Index(fields=['crop_type']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} - {self.agent.get_full_name() or self.agent.email}"
+
+    def save(self, *args, **kwargs):
+        """Calculer automatiquement le point central et la surface"""
+        if self.coordinates:
+            # Calculer le point central
+            self.center_point = self.coordinates.centroid
+            
+            # Calculer la surface en hectares si non spécifiée
+            if not self.area_hectares:
+                # Convertir de mètres carrés en hectares
+                area_m2 = self.coordinates.area
+                self.area_hectares = area_m2 / 10000
+        
+        super().save(*args, **kwargs)
+
+    def get_area_display(self):
+        """Affichage formaté de la surface"""
+        if self.area_hectares:
+            return f"{self.area_hectares:.2f} ha"
+        return "Non calculée"
+
+    def get_coordinates_list(self):
+        """Retourner les coordonnées sous forme de liste"""
+        if self.coordinates:
+            return list(self.coordinates.coords[0])
+        return []
+
+    def is_within_season(self):
+        """Vérifier si le périmètre est dans la saison de culture"""
+        from django.utils import timezone
+        today = timezone.now().date()
+        
+        if self.planting_date and self.expected_harvest:
+            return self.planting_date <= today <= self.expected_harvest
+        return False
+
+
+class GeofenceZone(gis_models.Model):
+    """Modèle pour les zones géofences (zones de surveillance)"""
+    ZONE_TYPE_CHOICES = (
+        ('SURVEILLANCE', 'Zone de surveillance'),
+        ('RESTRICTED', 'Zone restreinte'),
+        ('WARNING', 'Zone d\'avertissement'),
+        ('SAFE', 'Zone sécurisée'),
+    )
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=200, verbose_name="Nom de la zone")
+    zone_type = models.CharField(
+        max_length=20,
+        choices=ZONE_TYPE_CHOICES,
+        default='SURVEILLANCE',
+        verbose_name="Type de zone"
+    )
+    
+    # Périmètre associé
+    perimeter = models.ForeignKey(
+        FieldPerimeter,
+        on_delete=models.CASCADE,
+        related_name='geofences',
+        verbose_name="Périmètre associé"
+    )
+    
+    # Zone géographique
+    area = gis_models.PolygonField(
+        verbose_name="Zone géographique",
+        help_text="Zone définie pour la géofence"
+    )
+    
+    # Configuration de surveillance
+    is_active = models.BooleanField(default=True, verbose_name="Active")
+    priority_level = models.IntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        verbose_name="Niveau de priorité"
+    )
+    
+    # Conditions de déclenchement
+    trigger_conditions = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Conditions pour déclencher les alertes"
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Zone Géofence'
+        verbose_name_plural = 'Zones Géofences'
+        ordering = ['-priority_level', 'name']
+        indexes = [
+            models.Index(fields=['perimeter', 'is_active']),
+            models.Index(fields=['zone_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_zone_type_display()})"
+
+    def contains_point(self, point):
+        """Vérifier si un point est dans la zone"""
+        return self.area.contains(point)
+
+
+class LocationTracking(gis_models.Model):
+    """Modèle pour le suivi des localisations"""
+    TRACKING_TYPE_CHOICES = (
+        ('CAMERA', 'Caméra'),
+        ('PERSONNEL', 'Personnel'),
+        ('VEHICLE', 'Véhicule'),
+        ('EQUIPMENT', 'Équipement'),
+    )
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tracking_type = models.CharField(
+        max_length=20,
+        choices=TRACKING_TYPE_CHOICES,
+        verbose_name="Type de suivi"
+    )
+    
+    # Référence à l'objet suivi
+    object_id = models.UUIDField(verbose_name="ID de l'objet")
+    object_name = models.CharField(max_length=200, verbose_name="Nom de l'objet")
+    
+    # Localisation actuelle
+    current_location = gis_models.PointField(
+        verbose_name="Localisation actuelle"
+    )
+    
+    # Périmètre associé
+    perimeter = models.ForeignKey(
+        FieldPerimeter,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name="Périmètre actuel"
+    )
+    
+    # Informations de suivi
+    is_active = models.BooleanField(default=True, verbose_name="Actif")
+    last_seen = models.DateTimeField(auto_now=True, verbose_name="Dernière vue")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Suivi de Localisation'
+        verbose_name_plural = 'Suivis de Localisation'
+        ordering = ['-last_seen']
+        indexes = [
+            models.Index(fields=['tracking_type', 'is_active']),
+            models.Index(fields=['perimeter']),
+            models.Index(fields=['last_seen']),
+        ]
+
+    def __str__(self):
+        return f"{self.object_name} ({self.get_tracking_type_display()})"
+
+    def update_location(self, new_location):
+        """Mettre à jour la localisation et vérifier les périmètres"""
+        self.current_location = new_location
+        self.last_seen = timezone.now()
+        
+        # Vérifier dans quel périmètre se trouve l'objet
+        from django.contrib.gis.db.models.functions import Distance
+        perimeters = FieldPerimeter.objects.filter(
+            coordinates__contains=new_location,
+            status='ACTIVE'
+        ).first()
+        
+        self.perimeter = perimeters
+        self.save()

@@ -1,0 +1,149 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Exploration des logs du systeme",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "# Explorateur de Logs\n\nUtilisez les filtres ci-dessous pour explorer les logs.\n\n- **Tous les logs** : Laissez le champ vide\n- **Logs Backend** : `{service=\"backend\"}`\n- **Logs Frontend** : `{service=\"frontend\"}`\n- **Erreurs uniquement** : `{service=\"backend\"} |= \"ERROR\"`\n- **Logs Nginx** : `{service=\"nginx\"}`\n- **Logs PostgreSQL** : `{service=\"postgres\"}`\n",
+        "mode": "markdown"
+      },
+      "pluginVersion": "11.0.0",
+      "title": "Guide",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 3 },
+      "id": 2,
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": false,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        { "expr": "{service=\"backend\"} |= \"\"", "refId": "A" }
+      ],
+      "title": "Logs Backend",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 12, "w": 12, "x": 12, "y": 3 },
+      "id": 3,
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": false,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        { "expr": "{service=\"nginx\"} |= \"\"", "refId": "A" }
+      ],
+      "title": "Logs Nginx",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 12, "w": 12, "x": 0, "y": 15 },
+      "id": 4,
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": false,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        { "expr": "{service=\"postgres\"} |= \"\"", "refId": "A" }
+      ],
+      "title": "Logs PostgreSQL",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "${datasource}" },
+      "gridPos": { "h": 12, "w": 12, "x": 12, "y": 15 },
+      "id": 5,
+      "options": {
+        "sortOrder": "Descending",
+        "wrapLogMessage": false,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        { "expr": "{service=\"redis\"} |= \"\"", "refId": "A" }
+      ],
+      "title": "Logs Redis",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["surveillance", "logs", "loki"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Loki", "value": "loki" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Loki",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "loki",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Explorateur de Logs",
+  "uid": "logs-explorer",
+  "version": 1,
+  "weekStart": ""
+}

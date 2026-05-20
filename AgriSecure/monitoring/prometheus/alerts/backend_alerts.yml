@@ -1,0 +1,165 @@
+groups:
+  # ── Disponibilité des services ────────────────────────────────
+  - name: service_availability
+    interval: 15s
+    rules:
+
+      - alert: BackendDown
+        expr: up{job="django-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: backend
+          team: backend
+        annotations:
+          summary: "Backend Django inaccessible"
+          description: "Le serveur Django/Daphne ne répond plus depuis plus d'1 minute."
+          runbook: "docker compose logs backend --tail=100"
+
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgres
+          team: data
+        annotations:
+          summary: "PostgreSQL inaccessible"
+          description: "La base de données PostgreSQL ne répond plus depuis 1 minute. Impact: toute l'application."
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: redis
+          team: data
+        annotations:
+          summary: "Redis inaccessible"
+          description: "Redis est down. Impact: détections YOLO arrêtées, WebSocket non fonctionnel, Celery bloqué."
+
+      - alert: NginxDown
+        expr: up{job="nginx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: nginx
+          team: ops
+        annotations:
+          summary: "Nginx inaccessible — Frontend inaccessible"
+          description: "Le reverse proxy Nginx est down. Le frontend et l'API sont inaccessibles."
+
+  # ── Performance application ───────────────────────────────────
+  - name: application_performance
+    interval: 15s
+    rules:
+
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le)
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: backend
+          team: backend
+        annotations:
+          summary: "Temps de réponse P95 élevé"
+          description: "Le 95e percentile dépasse 2s depuis 5 minutes. Valeur: {{ $value | humanizeDuration }}"
+
+      - alert: CriticalResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])) by (le)
+          ) > 5
+        for: 2m
+        labels:
+          severity: critical
+          service: backend
+          team: backend
+        annotations:
+          summary: "Temps de réponse critique (>5s)"
+          description: "P95 dépasse 5s — service quasi inutilisable. Valeur: {{ $value | humanizeDuration }}"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(django_http_responses_total_by_status_view_method_total{status=~"5.."}[5m]))
+            /
+            (sum(rate(django_http_responses_total_by_status_view_method_total[5m])) + 0.001)
+          ) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          service: backend
+          team: backend
+        annotations:
+          summary: "Taux d'erreurs 5xx élevé"
+          description: "{{ $value | humanizePercentage }} des requêtes retournent une erreur 5xx depuis 3 minutes."
+
+      - alert: HighUnauthorizedRate
+        expr: |
+          sum(rate(django_http_responses_total_by_status_view_method_total{status="401"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: backend
+          team: security
+        annotations:
+          summary: "Taux élevé de requêtes 401 — possible intrusion"
+          description: "Plus de 10 requêtes/s non autorisées. Possible tentative de force brute ou token expiré massif."
+
+      - alert: DatabaseConnectionIssues
+        expr: rate(django_db_errors_total[5m]) > 5
+        for: 3m
+        labels:
+          severity: critical
+          service: postgres
+          team: data
+        annotations:
+          summary: "Erreurs de connexion base de données"
+          description: "Plus de 5 erreurs DB/minute depuis 3 minutes. Valeur: {{ $value | humanize }}/s"
+
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            rate(django_cache_get_hits_total[5m])
+            /
+            (rate(django_cache_get_hits_total[5m]) + rate(django_cache_get_misses_total[5m]) + 0.001)
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: redis
+          team: backend
+        annotations:
+          summary: "Taux de cache hit Django faible (<50%)"
+          description: "Le cache Django (Redis) a un faible taux de hits. Impact possible sur les performances."
+
+  # ── Celery ───────────────────────────────────────────────────
+  - name: celery_alerts
+    interval: 15s
+    rules:
+
+      - alert: CeleryHighFailureRate
+        expr: rate(celery_tasks_failed_total[10m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: celery
+          team: backend
+        annotations:
+          summary: "Taux d'échec Celery élevé"
+          description: "Plus de 5 tâches Celery échouent par minute depuis 5 minutes."
+
+      - alert: CeleryTaskTimeout
+        expr: celery_tasks_runtime_seconds_sum / celery_tasks_runtime_seconds_count > 60
+        for: 5m
+        labels:
+          severity: warning
+          service: celery
+          team: backend
+        annotations:
+          summary: "Tâches Celery lentes (>60s en moyenne)"
+          description: "Les tâches Celery prennent plus de 60s en moyenne."

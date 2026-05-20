@@ -1,0 +1,150 @@
+groups:
+  # ── Surveillance des caméras ──────────────────────────────────
+  - name: camera_surveillance
+    interval: 30s
+    rules:
+
+      - alert: CameraOffline
+        expr: agriwatch_cameras_total{status="offline"} > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: camera
+          team: surveillance
+        annotations:
+          summary: "{{ $value }} caméra(s) hors ligne"
+          description: "Des caméras de surveillance sont offline depuis 5 minutes. Vérifier la connexion réseau ou l'alimentation."
+
+      - alert: AllCamerasOffline
+        expr: agriwatch_cameras_total{status="online"} == 0 and agriwatch_cameras_total{status="offline"} > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: camera
+          team: surveillance
+        annotations:
+          summary: "TOUTES les caméras sont hors ligne"
+          description: "Aucune caméra n'est en ligne. La surveillance est totalement compromise."
+
+      - alert: HighDetectionRate
+        expr: rate(agriwatch_detections_total[5m]) * 300 > 50
+        for: 2m
+        labels:
+          severity: warning
+          service: detection
+          team: surveillance
+        annotations:
+          summary: "Taux de détections anormalement élevé (>50/5min)"
+          description: "Le taux de détections est inhabituellement élevé. Possible intrusion multiple ou faux positifs."
+
+      - alert: CriticalDangerDetection
+        expr: increase(agriwatch_detections_total{danger_level="HIGH"}[1m]) > 3
+        for: 0m
+        labels:
+          severity: critical
+          service: detection
+          team: surveillance
+        annotations:
+          summary: "Détections HAUTE DANGEROSITÉ multiples"
+          description: "Plus de 3 détections de haute dangerosité en 1 minute. Intrusion probable."
+
+      - alert: NoDetectionsLongTime
+        expr: |
+          increase(agriwatch_detections_total[30m]) == 0
+          and agriwatch_cameras_total{status="online"} > 0
+        for: 30m
+        labels:
+          severity: info
+          service: detection
+          team: surveillance
+        annotations:
+          summary: "Aucune détection depuis 30 minutes"
+          description: "Les caméras sont en ligne mais aucune détection n'a été enregistrée. Vérifier que le pipeline IA fonctionne."
+
+  # ── Détections YOLO ───────────────────────────────────────────
+  - name: yolo_performance
+    interval: 30s
+    rules:
+
+      - alert: SlowYoloInference
+        expr: histogram_quantile(0.95, rate(agriwatch_yolo_inference_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: ai_engine
+          team: backend
+        annotations:
+          summary: "Inférence YOLO lente (P95 > 1s)"
+          description: "L'inférence YOLOv8n prend plus d'1 seconde au 95e percentile. Impact: délai de détection des intrusions."
+
+      - alert: LowFrameCacheHitRate
+        expr: |
+          (
+            rate(agriwatch_frame_cache_hits_total[5m])
+            /
+            (rate(agriwatch_frame_cache_hits_total[5m]) + rate(agriwatch_frame_cache_misses_total[5m]) + 0.001)
+          ) < 0.3
+        for: 10m
+        labels:
+          severity: info
+          service: ai_engine
+          team: backend
+        annotations:
+          summary: "Cache frames YOLO peu efficace (<30% hit)"
+          description: "Peu de frames sont trouvées en cache. Charge CPU probablement élevée."
+
+  # ── Agents et périmètres ──────────────────────────────────────
+  - name: business_metrics
+    interval: 60s
+    rules:
+
+      - alert: NewAgentRegistrationPending
+        expr: agriwatch_pending_registrations_total > 5
+        for: 1h
+        labels:
+          severity: info
+          service: users
+          team: admin
+        annotations:
+          summary: "{{ $value }} demandes d'inscription agents en attente"
+          description: "Des demandes d'inscription d'agents agricoles attendent validation depuis plus d'1 heure."
+
+      - alert: NoActiveAgents
+        expr: agriwatch_active_agents_total == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: users
+          team: admin
+        annotations:
+          summary: "Aucun agent actif dans le système"
+          description: "Il n'y a aucun agent agricole actif. Le système de surveillance n'est pas opérationnel."
+
+  # ── WebSocket ─────────────────────────────────────────────────
+  - name: websocket_alerts
+    interval: 30s
+    rules:
+
+      - alert: NoWebSocketConnections
+        expr: |
+          agriwatch_websocket_connections_active == 0
+          and agriwatch_cameras_total{status="online"} > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: websocket
+          team: backend
+        annotations:
+          summary: "Aucune connexion WebSocket active"
+          description: "Des caméras sont en ligne mais aucun client ne reçoit le flux. Le système de surveillance temps réel est compromis."
+
+      - alert: HighWebSocketConnections
+        expr: agriwatch_websocket_connections_active > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: websocket
+          team: backend
+        annotations:
+          summary: "Nombre élevé de connexions WebSocket ({{ $value }})"
+          description: "Plus de 100 connexions WebSocket simultanées. Vérifier la mémoire et la charge réseau."

@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose restart *)",
+      "Bash(docker-compose up *)",
+      "Bash(docker-compose logs *)",
+      "Bash(docker-compose -f docker-compose.monitoring.yml logs grafana --tail=20)",
+      "Bash(make restart-frontend *)",
+      "Bash(docker-compose exec *)",
+      "Bash(npm list *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npx vite *)",
+      "Bash(make dev *)",
+      "Bash(git checkout *)",
+      "Bash(xargs grep -l \"useState.*\\[\\|mock\\|fake\\|dummy\")",
+      "Bash(Get-ChildItem -Recurse -Filter \"*.bat\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "PowerShell(head *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(git *)",
+      "PowerShell(docker exec alamine_bouba_project_v0-backend-1 *)",
+      "PowerShell(docker restart alamine_bouba_project_v0-frontend-1 *)",
+      "PowerShell(docker exec alamine_bouba_project_v0-frontend-1 *)",
+      "PowerShell(docker cp *)",
+      "PowerShell($repo = \"C:\\\\Users\\\\7MAKSACOD PC\\\\Downloads\\\\dossiers soutenance\\\\Alamine_Bouba_Project_v0\")",
+      "PowerShell(git -C $repo diff --cached --stat 2>&1)",
+      "PowerShell(git -C $repo remote add origin https://github.com/alamine2003/AgriSecure.git)",
+      "PowerShell(git -C $repo push -u origin develop 2>&1)",
+      "Bash(Test-Path *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\7MAKSACOD PC\\\\Downloads\\\\dossiers soutenance\\\\Alamine_Bouba_Project_v0\" -Recurse -Directory)",
+      "Bash(Sort-Object)",
+      "Bash(Get-ChildItem -Recurse -Directory)",
+      "Bash(dir /s \"C:\\\\Users\\\\7MAKSACOD PC\\\\Downloads\\\\dossiers soutenance\\\\Alamine_Bouba_Project_v0\")",
+      "PowerShell(docker compose exec *)"
+    ]
+  }
+}

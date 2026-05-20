@@ -1,0 +1,46 @@
+# docker-compose.override.yml
+# Chargé automatiquement par Docker Compose en plus de docker-compose.yml.
+# Surcharges pour le mode DÉVELOPPEMENT local.
+#
+# Webcam (Logitech C920) :
+#   Décommenter le bloc "devices / group_add" UNIQUEMENT sur Linux
+#   avec /dev/video0 disponible. Laisser commenté sur Windows/macOS.
+
+services:
+  backend:
+    volumes:
+      - ./backend:/app
+    environment:
+      - DJANGO_DEBUG=True
+      - DJANGO_SETTINGS_MODULE=core.settings.dev
+      - CAMERA_INDEX=${CAMERA_INDEX:-0}
+      - CAMERA_FPS=${CAMERA_FPS:-15}
+      - YOLO_CONFIDENCE_THRESHOLD=0.5
+      - YOLO_CACHE_TTL_SECONDS=30
+    # --- Webcam Linux uniquement ---
+    # devices:
+    #   - "${VIDEO_DEVICE:-/dev/video0}:/dev/video0"
+    # group_add:
+    #   - "${VIDEO_GID:-44}"
+
+  celery-worker:
+    volumes:
+      - ./backend:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings.dev
+      - CAMERA_INDEX=${CAMERA_INDEX:-0}
+      - CAMERA_FPS=${CAMERA_FPS:-15}
+
+  frontend:
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    ports:
+      - "3000:3000"
+    command: npm run dev
+
+  nginx:
+    environment:
+      - NGINX_MODE=dev

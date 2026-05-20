@@ -1,0 +1,49 @@
+# Environment
+.env
+.env.*
+
+# pgAdmin credentials
+pgadmin/pgpass
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Node
+node_modules/
+build/
+dist/
+coverage/
+
+# Celery
+celerybeat-schedule
+celerybeat-schedule.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Docker
+*.pid
+
+# Media & Static (generated)
+backend/static/
+backend/media/
+
+# YOLO models (downloaded at runtime)
+backend/ai_engine/models/*.pt
+
+# Legacy scripts (use Makefile instead)
+*.bat
+*.ps1
+!make.bat

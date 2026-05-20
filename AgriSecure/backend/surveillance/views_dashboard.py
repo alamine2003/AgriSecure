@@ -1,0 +1,320 @@
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Count, Q, Avg, Sum
+from django.db.models.functions import TruncDate, ExtractHour
+from django.utils import timezone
+from datetime import timedelta
+from .models import Camera, Detection, Alert, InstallationAppointment, Technician
+from .models_subscription import Subscription
+from users.models import CustomUser
+from users.permissions import IsMaintenancier, IsAgentAgricole, MustChangePasswordPermission
+
+class DashboardViewSet(viewsets.GenericViewSet):
+    """ViewSet pour les dashboards selon le rôle"""
+    permission_classes = [IsAuthenticated, MustChangePasswordPermission]
+
+    @action(detail=False, methods=['get'])
+    def maintenancier(self, request):
+        """Dashboard du Maintenancier"""
+        if request.user.role != 'maintenancier':
+            return Response(
+                {'error': 'Accès réservé aux maintenanciers'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Statistiques générales
+        total_agents = CustomUser.objects.filter(role='agent_agricole').count()
+        active_agents = CustomUser.objects.filter(role='agent_agricole', is_active=True).count()
+        total_cameras = Camera.objects.count()
+        active_cameras = Camera.objects.filter(is_active=True).count()
+        
+        # Statistiques des abonnements
+        total_subscriptions = Subscription.objects.count()
+        active_subscriptions = Subscription.objects.filter(status='ACTIVE').count()
+        monthly_revenue = Subscription.objects.filter(
+            status='ACTIVE'
+        ).aggregate(total=Sum('monthly_price'))['total'] or 0
+        
+        # Statistiques des techniciens
+        total_technicians = Technician.objects.count()
+        available_technicians = Technician.objects.filter(is_available=True).count()
+        
+        # Rendez-vous en attente
+        pending_appointments = InstallationAppointment.objects.filter(
+            status='PENDING'
+        ).count()
+        
+        # Dernières détections
+        recent_detections = Detection.objects.select_related('camera', 'agent').order_by(
+            '-detected_at'
+        )[:10].values(
+            'id', 'label', 'danger_level', 'detected_at',
+            'camera__name', 'agent__email'
+        )
+        
+        # Rendez-vous récents
+        recent_appointments = InstallationAppointment.objects.select_related(
+            'agent', 'technician__user'
+        ).order_by('-created_at')[:10].values(
+            'id', 'region', 'locality', 'status', 'created_at',
+            'agent__email', 'technician__user__first_name', 'technician__user__last_name'
+        )
+        
+        return Response({
+            'statistics': {
+                'agents': {
+                    'total': total_agents,
+                    'active': active_agents,
+                    'inactive': total_agents - active_agents
+                },
+                'cameras': {
+                    'total': total_cameras,
+                    'active': active_cameras,
+                    'inactive': total_cameras - active_cameras
+                },
+                'subscriptions': {
+                    'total': total_subscriptions,
+                    'active': active_subscriptions,
+                    'monthly_revenue': monthly_revenue
+                },
+                'technicians': {
+                    'total': total_technicians,
+                    'available': available_technicians,
+                    'busy': total_technicians - available_technicians
+                },
+                'appointments': {
+                    'pending': pending_appointments
+                }
+            },
+            'recent_detections': list(recent_detections),
+            'recent_appointments': list(recent_appointments)
+        })
+
+    @action(detail=False, methods=['get'])
+    def agent_agricole(self, request):
+        """Dashboard de l'Agent Agricole"""
+        if request.user.role != 'agent_agricole':
+            return Response(
+                {'error': 'Accès réservé aux agents agricoles'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        agent = request.user
+        
+        # Vérifier l'abonnement
+        subscription = getattr(agent, 'subscription', None)
+        has_premium = subscription and subscription.is_active() and subscription.plan in ['PREMIUM', 'ENTERPRISE']
+        
+        # Statistiques des caméras
+        total_cameras = Camera.objects.filter(agent=agent).count()
+        active_cameras = Camera.objects.filter(agent=agent, is_active=True).count()
+        
+        # Statistiques des détections (30 derniers jours)
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        detections_30d = Detection.objects.filter(
+            agent=agent, 
+            detected_at__gte=thirty_days_ago
+        )
+        
+        total_detections_30d = detections_30d.count()
+        high_danger_detections_30d = detections_30d.filter(danger_level='HIGH').count()
+        
+        # Statistiques par type d'objet détecté
+        detections_by_label = detections_30d.values('label').annotate(
+            count=Count('id'),
+            high_danger_count=Count('id', filter=Q(danger_level='HIGH'))
+        ).order_by('-count')
+        
+        # Alertes non lues
+        unread_alerts = Alert.objects.filter(
+            detection__agent=agent, 
+            is_read=False
+        ).count()
+        
+        # Dernières détections
+        recent_detections = Detection.objects.filter(agent=agent).order_by(
+            '-detected_at'
+        )[:10].values(
+            'id', 'label', 'confidence', 'danger_level', 'detected_at',
+            'camera__name', 'frame_capture', 'is_alert'
+        )
+        
+        # Périmètres (si premium)
+        perimeters = []
+        if has_premium:
+            perimeters = agent.field_perimeters.values(
+                'id', 'name', 'area_hectares', 'is_premium_visible'
+            )
+        
+        # État de l'abonnement
+        subscription_info = None
+        if subscription:
+            subscription_info = {
+                'plan': subscription.plan,
+                'status': subscription.status,
+                'is_active': subscription.is_active(),
+                'end_date': subscription.end_date,
+                'features': {
+                    'camera': subscription.has_feature('camera'),
+                    'perimeter_mapping': subscription.has_feature('perimeter_mapping'),
+                    'advanced_analytics': subscription.has_feature('advanced_analytics'),
+                    'email_alerts': subscription.has_feature('email_alerts'),
+                    'phone_alerts': subscription.has_feature('phone_alerts'),
+                }
+            }
+        
+        return Response({
+            'profile': {
+                'name': agent.get_full_name(),
+                'email': agent.email,
+                'phone': agent.phone,
+                'must_change_password': agent.must_change_password
+            },
+            'subscription': subscription_info,
+            'cameras': {
+                'total': total_cameras,
+                'active': active_cameras
+            },
+            'detections_30_days': {
+                'total': total_detections_30d,
+                'high_danger': high_danger_detections_30d,
+                'by_label': list(detections_by_label)
+            },
+            'alerts': {
+                'unread_count': unread_alerts
+            },
+            'perimeters': list(perimeters) if has_premium else [],
+            'recent_detections': list(recent_detections)
+        })
+
+    @action(detail=False, methods=['get'])
+    def analytics(self, request):
+        """Analytics avancés (Premium uniquement)"""
+        if request.user.role != 'agent_agricole':
+            return Response(
+                {'error': 'Accès réservé aux agents agricoles'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Vérifier l'abonnement Premium
+        subscription = getattr(request.user, 'subscription', None)
+        if not subscription or not subscription.is_active() or not subscription.has_feature('advanced_analytics'):
+            return Response(
+                {'error': 'Fonctionnalité Premium requise'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        agent = request.user
+        
+        # Période d'analyse — clampée à [1, 365] pour éviter les requêtes géantes
+        try:
+            days = max(1, min(int(request.query_params.get('days', 30)), 365))
+        except (ValueError, TypeError):
+            days = 30
+        start_date = timezone.now() - timedelta(days=days)
+        
+        # Détections par jour
+        detections_by_day = Detection.objects.filter(
+            agent=agent,
+            detected_at__gte=start_date
+        ).annotate(
+            day=TruncDate('detected_at')
+        ).values('day').annotate(
+            count=Count('id'),
+            high_danger_count=Count('id', filter=Q(danger_level='HIGH'))
+        ).order_by('day')
+        
+        # Détections par heure (pour les patterns)
+        detections_by_hour = Detection.objects.filter(
+            agent=agent,
+            detected_at__gte=start_date
+        ).annotate(
+            hour=ExtractHour('detected_at')
+        ).values('hour').annotate(
+            count=Count('id')
+        ).order_by('hour')
+        
+        # Performance par caméra
+        camera_stats = Detection.objects.filter(
+            agent=agent,
+            detected_at__gte=start_date
+        ).values('camera__name').annotate(
+            total_detections=Count('id'),
+            high_danger_detections=Count('id', filter=Q(danger_level='HIGH')),
+            avg_confidence=Avg('confidence')
+        ).order_by('-total_detections')
+        
+        # Taux de fausses alertes (basé sur la confiance)
+        low_confidence_count = Detection.objects.filter(
+            agent=agent,
+            detected_at__gte=start_date,
+            confidence__lt=0.5
+        ).count()
+        
+        total_detections = Detection.objects.filter(
+            agent=agent,
+            detected_at__gte=start_date
+        ).count()
+        
+        false_positive_rate = (low_confidence_count / total_detections * 100) if total_detections > 0 else 0
+        
+        return Response({
+            'period_days': days,
+            'detections_by_day': list(detections_by_day),
+            'detections_by_hour': list(detections_by_hour),
+            'camera_performance': list(camera_stats),
+            'quality_metrics': {
+                'total_detections': total_detections,
+                'false_positive_rate': round(false_positive_rate, 2),
+                'avg_confidence': Detection.objects.filter(
+                    agent=agent,
+                    detected_at__gte=start_date
+                ).aggregate(avg=Avg('confidence'))['avg'] or 0
+            }
+        })
+
+    @action(detail=False, methods=['get'])
+    def system_status(self, request):
+        """État du système (maintenancier uniquement)"""
+        if request.user.role != 'maintenancier':
+            return Response(
+                {'error': 'Accès réservé aux maintenanciers'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # État des caméras
+        camera_status = Camera.objects.values('is_active').annotate(
+            count=Count('id')
+        ).order_by('is_active')
+        
+        # État des techniciens par région
+        technician_status = Technician.objects.values('region').annotate(
+            total=Count('id'),
+            available=Count('id', filter=Q(is_available=True))
+        ).exclude(region__isnull=True).order_by('region')
+        
+        # Rendez-vous par statut
+        appointment_status = InstallationAppointment.objects.values('status').annotate(
+            count=Count('id')
+        ).order_by('status')
+        
+        # Dernières alertes critiques
+        critical_alerts = Alert.objects.filter(
+            detection__danger_level='HIGH',
+            is_read=False
+        ).select_related('detection__agent', 'detection__camera').order_by(
+            '-created_at'
+        )[:10].values(
+            'id', 'message', 'created_at',
+            'detection__agent__email',
+            'detection__camera__name'
+        )
+        
+        return Response({
+            'camera_status': list(camera_status),
+            'technician_status': list(technician_status),
+            'appointment_status': list(appointment_status),
+            'critical_alerts': list(critical_alerts)
+        })
