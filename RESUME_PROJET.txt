@@ -1,0 +1,690 @@
+================================================================================
+   AGRIWATCH — RÉSUMÉ DÉTAILLÉ DU PROJET
+   Plateforme de surveillance agricole intelligente par vision par ordinateur
+   Auteur : Mouhamed Alamine Berre | Date : Mai 2026
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. PRÉSENTATION GÉNÉRALE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+AgriWatch est une plateforme web de surveillance agricole conçue pour le Sénégal.
+Elle permet aux agriculteurs de protéger leurs exploitations contre les intrusions
+humaines et animales grâce à des caméras connectées, un moteur IA de détection
+d'objets (YOLOv8) et des alertes temps réel sur un tableau de bord web.
+
+Contexte local :
+  Le Sénégal compte environ 800 000 exploitations agricoles, dont la majorité
+  sont des petites et moyennes exploitations rurales vulnérables aux vols de
+  bétail, au pillage de récoltes et aux intrusions non autorisées. Les solutions
+  de vidéosurveillance traditionnelles sont coûteuses et inadaptées au milieu
+  rural (pas d'infrastructure, connectivité limitée, coût prohibitif).
+
+  AgriWatch répond à ce besoin avec une approche pragmatique :
+  — Une simple webcam USB (ex. Logitech C920) suffit comme capteur
+  — Le traitement IA se fait côté serveur (pas de calcul sur le terrain)
+  — L'interface est accessible depuis n'importe quel navigateur
+  — Le modèle d'abonnement est calibré sur les réalités économiques locales
+    (FCFA, Orange Money, Wave)
+
+Utilisateurs cibles :
+  — Agent Agricole    : exploitant qui surveille son domaine
+  — Maintenancier     : opérateur de la plateforme qui gère les agents
+                        et les installations
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. STACK TECHNOLOGIQUE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BACKEND
+───────
+  • Django 5.x            — Framework web Python (ORM, admin, auth)
+  • Django REST Framework — API RESTful avec pagination, filtrage, permissions
+  • Django Channels (ASGI)— WebSocket bidirectionnel temps réel
+  • Daphne               — Serveur ASGI (HTTP + WebSocket sur le même process)
+  • Celery + Celery Beat  — Tâches asynchrones + planificateur périodique
+  • django-celery-beat    — Stockage des schedules en base PostgreSQL
+  • Simple JWT            — Authentification JSON Web Token
+  • drf-spectacular       — Génération automatique de la documentation Swagger
+  • django-prometheus     — Exposition des métriques applicatives (via /metrics)
+  • django-filter         — Filtrage avancé sur les querysets
+
+IA / VISION PAR ORDINATEUR
+───────────────────────────
+  • YOLOv8n (Ultralytics) — Modèle nano, léger, optimisé pour CPU
+                            Téléchargement automatique au premier démarrage
+  • OpenCV                — Capture vidéo (cv2.VideoCapture), thread dédié
+  • Cache Redis (YOLOCache)— Hash spatial de frame → évite ~70% des inférences
+                            redondantes sur scènes statiques (TTL configurable)
+
+FRONTEND
+────────
+  • React 18              — Interface utilisateur SPA
+  • Vite 5                — Bundler ultra-rapide, HMR en développement
+  • TailwindCSS           — CSS utilitaire, thème sombre forcé (HSL CSS vars)
+  • TanStack React Query  — Gestion état serveur (cache, refetch automatique)
+  • React Router v6       — Routage côté client avec guards de rôle
+  • React Leaflet         — Cartographie interactive (OpenStreetMap, Leaflet.draw)
+  • Sonner                — Notifications toast non-intrusives
+  • Lucide React          — Bibliothèque d'icônes SVG
+  • Axios                 — Client HTTP avec intercepteurs auto-refresh JWT
+  • mockAdapter.js        — Mock complet de l'API (démo sans backend actif)
+
+INFRASTRUCTURE
+──────────────
+  • PostgreSQL 15         — Base de données principale (UUID PKs partout)
+  • Redis 7               — Triple usage : cache YOLO + broker Celery + Channel Layer
+  • MinIO                 — Stockage objet S3-compatible pour captures d'écran
+  • Nginx                 — Reverse proxy, terminaison HTTP/WS, fichiers statiques
+
+MONITORING (Stack de production complète)
+──────────────────────────────────────────
+  • Prometheus            — Collecte métriques applicatives + infra (rétention 30j)
+  • Grafana               — Dashboards de supervision (port 3001)
+  • Loki                  — Agrégation centralisée des logs Docker
+  • Alertmanager          — Routage et gestion des alertes d'infrastructure
+  • postgres-exporter     — Métriques PostgreSQL pour Prometheus
+  • redis-exporter        — Métriques Redis pour Prometheus
+  • nginx-exporter        — Métriques Nginx pour Prometheus
+  • Promtail / cAdvisor / node-exporter — Logs + métriques containers (Linux)
+
+  Note : cette stack monitoring, bien que volumineuse, démontre une maîtrise
+  des outils DevOps de niveau production et constitue un atout lors de la
+  soutenance. En déploiement minimal, les services d'export peuvent être
+  retirés sans impact fonctionnel.
+
+OUTILS D'ADMINISTRATION
+────────────────────────
+  • pgAdmin 4             — Interface graphique PostgreSQL (port 5050)
+  • Flower                — Supervision des workers Celery (port 5555)
+  • Django Admin          — Interface d'administration native (/admin/)
+  • Swagger UI            — Documentation API interactive (/api/docs/, DEBUG)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. ARCHITECTURE SYSTÈME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PIPELINE DE DÉTECTION EN TEMPS RÉEL
+─────────────────────────────────────
+
+  Caméra USB (/dev/video0)
+       │
+       ▼
+  frame_reader.py          — Lecture OpenCV dans un thread daemon dédié
+       │                      (1 thread par caméra, géré par StreamManager)
+       ▼
+  detection_filter.py      — Filtre anti-doublon basé sur la similarité
+       │                      (évite le traitement de frames identiques)
+       ▼
+  ai_engine/cache.py       — YOLOCache : vérification Redis
+       │  [CACHE HIT]         → retourne les détections précédentes
+       │  [CACHE MISS]        → inférence YOLOv8n lancée
+       ▼
+  YOLOv8n (detector.py)    — Singleton, chargé une seule fois en mémoire
+       │                      Seuil de confiance configurable (YOLO_CONFIDENCE_THRESHOLD)
+       ▼
+  danger_scorer.py         — Mapping label → niveau de danger :
+       │                        HIGH   : person
+       │                        MEDIUM : cow, goat, horse, sheep
+       │                        LOW    : bird, cat, dog
+       │                      (classes configurables via variables d'environnement)
+       ▼
+  detection_saver.py       — Sauvegarde Detection en PostgreSQL
+       │                      Upload capture JPEG vers MinIO si is_alert=True
+       ▼
+  alert_notifier.py        — Vérifie le cooldown via AlertCooldownManager
+       │                      (Redis SET NX, TTL = ALERT_COOLDOWN_SECONDS)
+       │                      Si cooldown OK → crée Alert en base
+       ▼
+  websocket_broadcaster.py — Broadcast via Django Channels (Redis pub/sub)
+       │                      Groupe "camera_<uuid>"
+       ▼
+  Frontend React / CameraFeed.jsx
+                           — Réception WebSocket, décodage JPEG base64,
+                             dessin des bounding boxes sur <canvas> superposé,
+                             affichage label + pourcentage de confiance,
+                             notification toast instantanée via Sonner
+
+ANTI-SPAM ALERTES (AlertCooldownManager)
+─────────────────────────────────────────
+  Problème résolu : sans cooldown, un humain traversant le champ pendant
+  30 secondes générerait ~900 alertes (30fps × 30s).
+
+  Solution :
+    Clé Redis : "alert:<camera_id>:<label>"
+    SET NX (créé uniquement si absent) + TTL configurable (défaut 15 secondes)
+    → Maximum 1 alerte par type d'objet, par caméra, par fenêtre de cooldown
+    → Fail-open : si Redis indisponible, les alertes passent quand même
+
+ARCHITECTURE RÉSEAU (Docker)
+─────────────────────────────
+
+  [Navigateur]
+       │
+       ▼ HTTP:80 / WS:80
+  [Nginx] ─────────────────────────── ► [Frontend Vite :3000 (dev)]
+       │                                  [Fichiers statiques (prod)]
+       │ proxy_pass /api/v1/*
+       │ proxy_pass /ws/*
+       ▼
+  [Backend Daphne :8000]
+       │
+       ├──► [PostgreSQL :5432]
+       ├──► [Redis :6379]   (Cache YOLO + Channel Layer + Celery broker)
+       └──► [MinIO :9000]   (captures d'écran des détections is_alert=True)
+
+  [Celery Worker]   ◄── Redis queue ──► tâches asynchrones
+  [Celery Beat]     ──► métriques périodiques, expiration abonnements
+
+  Note : En v0, YOLOv8n et le backend API tournent sur le même processus
+  Daphne. Pour une montée en charge (10+ caméras simultanées), séparer le
+  pipeline IA dans un worker Celery ou un service GPU dédié serait nécessaire.
+
+AUTHENTIFICATION WEBSOCKET
+───────────────────────────
+  Le token JWT est transmis via le mécanisme des subprotocoles WebSocket
+  (en-tête Sec-WebSocket-Protocol), non pas via l'URL ou un query param.
+  Avantage : le token n'apparaît pas dans les logs d'accès Nginx.
+
+  Flux :
+    1. Frontend → new WebSocket(url, [accessToken])
+    2. Nginx upgrade → Daphne (Sec-WebSocket-Protocol: <token>)
+    3. JwtAuthMiddleware lit scope["subprotocols"][0] et valide le JWT
+    4. Si valide : scope["user"] = utilisateur authentifié
+    5. CameraConsumer.connect() vérifie que la caméra appartient à l'agent
+    6. Connexion acceptée, stream démarré via StreamManager
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. MODÈLES DE DONNÉES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tous les modèles utilisent des UUID comme clé primaire.
+
+UTILISATEURS (app: users)
+──────────────────────────
+  CustomUser (étend AbstractUser, sans champ username)
+    - id            : UUID
+    - email         : unique — sert de USERNAME_FIELD
+    - nin           : Numéro d'Identité National sénégalais (unique)
+    - first_name, last_name, phone
+    - role          : 'maintenancier' | 'agent_agricole'
+    - must_change_password : True à la création (forçage premier changement)
+    - created_at, updated_at, last_login
+
+  OTPCode (authentification 2 facteurs)
+    - code          : 6 chiffres générés aléatoirement
+    - session_token : UUID unique par tentative
+    - expires_at    : TTL 10 minutes
+    - is_used       : usage unique (atomique via SELECT FOR UPDATE)
+
+  TrustedDevice (appareil mémorisé)
+    - token         : UUID unique par appareil enregistré
+    - user_agent    : identification navigateur/OS
+    - expires_at    : validité 90 jours (pas de re-OTP sur cet appareil)
+
+SURVEILLANCE (app: surveillance)
+─────────────────────────────────
+  Camera
+    - agent (FK)        : propriétaire (agent agricole)
+    - name, location    : identification lisible
+    - camera_index      : indice OpenCV (0 = /dev/video0)
+    - is_active         : flag de configuration admin (≠ statut temps réel)
+    - latitude, longitude, installed_at
+
+  Detection
+    - camera (FK), agent (FK)
+    - label             : classe YOLO ('person', 'cow', 'bird', etc.)
+    - confidence        : score YOLO (float 0.0–1.0)
+    - danger_level      : LOW | MEDIUM | HIGH
+    - bbox              : JSON [x1, y1, x2, y2]
+    - frame_capture     : URL MinIO (présent si is_alert=True)
+    - detected_at       : auto
+    - is_alert, is_false_positive
+
+  Alert (1-to-1 avec Detection)
+    - detection (OneToOneField) : une détection → au plus une alerte
+    - message           : description générée automatiquement
+    - is_read, resolved_at, created_at
+
+  FieldPerimeter
+    - agent (FK)
+    - name, description
+    - coordinates       : JSON [[lat, lng], ...] polygone GPS
+    - center_lat, center_lng, area_hectares
+    - Algorithme de calcul de surface : Shoelace (degrés² × 111.32² × 100 = ha)
+
+  Subscription (1-to-1 avec Agent)
+    - plan              : BASIC | PREMIUM | ENTERPRISE
+    - status            : ACTIVE | EXPIRED | CANCELLED | SUSPENDED
+    - monthly_price     : en FCFA
+    - includes_camera, includes_perimeter_mapping, includes_advanced_analytics,
+      includes_email_alerts, includes_phone_alerts
+
+  Payment
+    - subscription (FK)
+    - amount (FCFA), payment_method, status, transaction_id
+
+  Technician
+    - user (FK), region, is_available
+
+  InstallationAppointment
+    - agent, technician, region, locality, address
+    - status : PENDING → SCHEDULED → DONE | CANCELLED
+    - equipment_installed (JSON), latitude, longitude
+
+  AgentRegistrationRequest (soumission publique sans authentification)
+    - nin, email, nom, prénom, téléphone, région, localité, farm_size
+    - status : PENDING | APPROVED | REJECTED
+    - is_archived : masquage de la liste sans suppression
+
+  AuditLog (traçabilité maintenancier)
+    - user, action (CREATE_AGENT, APPROVE_REQUEST, etc.)
+    - target_type, target_id, target_name, details (JSON)
+    - ip_address, user_agent
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. API REST — ENDPOINTS PRINCIPAUX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Base URL : /api/v1/
+
+AUTHENTIFICATION
+  POST  /auth/login/step1/           — Email + MDP → session OTP ou token direct
+  POST  /auth/login/step2/           — Code OTP → access + refresh token
+  POST  /auth/token/refresh/         — Renouvellement du token d'accès (JWT)
+  POST  /auth/change-password/       — Changement MDP obligatoire (premier login)
+
+CAMERAS
+  GET   /surveillance/cameras/       — Caméras de l'agent (toutes si maintenancier)
+  POST  /surveillance/cameras/       — Créer (maintenancier uniquement)
+
+DÉTECTIONS
+  GET   /surveillance/detections/    — Liste (filtres: camera, danger_level, label)
+  GET   /surveillance/detections/export_csv/  — Export CSV (BOM UTF-8 Excel)
+  PATCH /surveillance/detections/{id}/mark_false_positive/
+
+ALERTES
+  GET   /surveillance/alerts/        — Liste des alertes
+  PATCH /surveillance/alerts/{id}/read/
+  PATCH /surveillance/alerts/{id}/resolve/
+
+PÉRIMÈTRES
+  GET/POST/PATCH/DELETE /surveillance/perimeters/{id}/
+
+INSTALLATION
+  GET/POST/PATCH /surveillance/installation-appointments/
+  GET/POST       /surveillance/technicians/
+
+ABONNEMENTS
+  GET/POST/PATCH /surveillance/subscriptions/
+  GET/POST       /surveillance/payments/
+
+INSCRIPTIONS
+  POST  /surveillance/registration-requests/          — Public, sans auth
+  PATCH /surveillance/registration-requests/{id}/approve/
+  PATCH /surveillance/registration-requests/{id}/reject/
+
+AUDIT
+  GET   /surveillance/audit-logs/                      — Maintenancier only
+
+DASHBOARDS & ANALYTICS
+  GET   /surveillance/dashboard/analytics/?days=30     — Statistiques agent
+                                          &agent_id=   — (maintenancier)
+  GET   /surveillance/dashboard/maintenancier/
+  GET   /surveillance/dashboard/agent_agricole/
+  GET   /surveillance/dashboard/system_status/
+
+RAPPORTS & NOTIFICATIONS
+  GET/POST  /reports/
+  GET       /notifications/
+
+WEBSOCKET
+  WS    /ws/surveillance/<camera_id>/  — Flux vidéo + détections
+  WS    /ws/notifications/             — Push notifications in-app
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. RÔLES ET PERMISSIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MAINTENANCIER
+  • Crée et gère les comptes agents agricoles
+  • Traite les demandes d'inscription (approuver / rejeter)
+  • Crée, assigne et configure les caméras par agent
+  • Gère les techniciens et planifie les rendez-vous d'installation
+  • Consulte les analytics d'un agent via ?agent_id=
+  • Accès global aux détections, alertes, logs d'audit
+  Pages : /maintenancier/dashboard, /agents, /inscription, /rendezvous
+
+AGENT AGRICOLE
+  • Surveille ses caméras en direct (WebSocket)
+  • Reçoit, lit et résout ses alertes
+  • Marque les détections comme faux positifs
+  • Dessine ses périmètres GPS sur carte interactive
+  • Consulte ses statistiques (7/30/90 jours)
+  • Génère et télécharge des rapports PDF
+  • Configure ses préférences de notification
+  Pages : /agent/dashboard, /agent/perimeter, /surveillance, /reports,
+          /agent/inbox, /agent/archive, /settings
+
+PERMISSIONS CLÉS
+  MustChangePasswordPermission : bloque TOUTE action si must_change_password=True
+  IsOwnerOrMaintenancier       : isolation des données par agent
+  WebSocket                    : vérification ownership caméra à la connexion
+  Throttling                   : rates limitées sur login, OTP, inscriptions
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. SÉCURITÉ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MESURES EN PLACE
+─────────────────
+  Authentification 2 facteurs (OTP email, TTL 10 min)
+  Appareils de confiance (TrustedDevice UUID, 90 jours)
+  JWT tokens (access court-vécu + refresh long-vécu)
+  Auto-refresh transparent via intercepteur Axios (pas de déconnexion)
+  Token WebSocket via subprotocol header — absent de l'URL et des access logs
+  Forçage de changement de MDP au premier login (NIN → MDP personnel)
+  Bypass OTP contrôlé via variable BYPASS_OTP (≠ DEBUG en production)
+  Rate limiting côté Django (LoginRateThrottle, OTPRateThrottle)
+  Validation anti-XSS sur les champs texte libres (suppression balises HTML)
+  AuditLog : traçabilité complète de toutes les actions sensibles
+  HTTPS/HSTS configurable en production (SECURE_SSL_REDIRECT, HSTS_SECONDS)
+
+CHOIX TECHNIQUES ET JUSTIFICATIONS
+────────────────────────────────────
+  JWT dans localStorage :
+    Choix pragmatique pour simplifier l'implémentation frontend (SPA).
+    L'exposition XSS est mitigée par la sanitisation des inputs et l'absence
+    de rendu de contenu HTML utilisateur non contrôlé dans l'application.
+    Alternative plus sécurisée en v1 : httpOnly cookies avec CSRF token.
+
+  NIN comme MDP initial :
+    Le NIN est semi-public (présent sur les documents d'identité). Ce risque
+    est entièrement mitigé par must_change_password=True à la création :
+    l'agent ne peut effectuer aucune action avant d'avoir changé son MDP.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. INTERFACE UTILISATEUR — PAGES ET FONCTIONNALITÉS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TABLEAU DE BORD AGENT (/agent/dashboard) — Layout atomique
+────────────────────────────────────────────────────────────
+
+  ┌── StatsGrid (4 KPIs) ─────────────────────────────────────────────────────┐
+  │  Caméras actives | Surface totale (ha) | Alertes non lues | Danger HIGH   │
+  │  (données issues de l'endpoint analytics — précises sur la période)       │
+  └───────────────────────────────────────────────────────────────────────────┘
+  ┌── PerimetersSection (2/3) ────────┐  ┌── AlertsSection (1/3) ─────────────┐
+  │  Carte Leaflet + liste             │  │  4 dernières alertes               │
+  │  CRUD périmètres (modal carte)     │  │  Marquer lue / Résoudre            │
+  └────────────────────────────────────┘  └────────────────────────────────────┘
+  ┌── CamerasSection (2/3) ────────────┐  ┌── DetectionsSection (1/3) ─────────┐
+  │  Grille CameraCard (Active/Inactive│  │  6 dernières détections            │
+  │  Bouton "Voir le flux")            │  │  Barre confiance + FP toggle       │
+  └────────────────────────────────────┘  └────────────────────────────────────┘
+  ┌── AnalyticsSection (section complète) ────────────────────────────────────┐
+  │  Header : [7j] [30j] [90j]  [Export CSV]                                  │
+  │  KPIs : Taux réel | FP% | Alertes résolues | Confiance YOLO moyenne       │
+  │  Tendance sur la période (bar chart stacked HIGH/MEDIUM/LOW)               │
+  │  Distribution par heure (indigo nuit, emerald jour)                        │
+  │  Répartition niveaux de danger (barres horizontales avec %)                │
+  │  Top objets détectés confirmés (hors faux positifs)                        │
+  │  Performance par caméra (total dét., % confiance, % danger élevé, % FP)   │
+  └───────────────────────────────────────────────────────────────────────────┘
+  ┌── DashboardMap ────────────────────────────────────────────────────────────┐
+  │  Carte Leaflet : périmètres (polygones) + caméras (marqueurs GPS)          │
+  └───────────────────────────────────────────────────────────────────────────┘
+
+SURVEILLANCE EN DIRECT (/surveillance)
+───────────────────────────────────────
+  • Grille de flux vidéo (1 à N caméras, WebSocket par caméra)
+  • Bounding boxes dessinées sur <canvas> superposé à l'<img>
+  • Label + pourcentage de confiance YOLO pour chaque objet
+  • Indicateur : EN DIRECT / RECONNEXION (countdown) / CONNEXION IMPOSSIBLE
+  • Reconnexion automatique : backoff exponentiel (1s→2s→4s→8s→16s, max 30s)
+  • Bouton "Reconnecter maintenant" disponible pendant le countdown
+
+DÉFINITION DE PÉRIMÈTRE (/agent/perimeter)
+───────────────────────────────────────────
+  • Carte Leaflet avec Leaflet.draw (dessin de polygone)
+  • Calcul automatique de surface (algorithme de Shoelace, en hectares)
+  • CRUD complet avec confirmation de suppression
+  • Visualisation de tous les périmètres superposés sur la même carte
+
+COMPOSANTS (Architecture Atomic Design)
+────────────────────────────────────────
+  atoms/       : StatCard, SectionHeader, EmptyState, LoadingSpinner
+  molecules/   : AlertItem, DetectionItem, CameraCard, PerimeterCard
+  organisms/   : StatsGrid, AlertsSection, DetectionsSection, CamerasSection,
+                 PerimetersSection, AnalyticsSection
+  templates/   : DashboardLayout (sidebar + header + zone de contenu)
+  ui/          : field-map-drawer, dashboard-map, primitives shadcn/ui
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. STATISTIQUES ET ANALYTICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Endpoint : GET /surveillance/dashboard/analytics/?days=N
+Accessible : agent agricole (ses propres données)
+             maintenancier + ?agent_id=<uuid> (données d'un agent spécifique)
+
+Données retournées :
+  quality_metrics :
+    total_detections         — toutes détections sur la période (y.c. FP)
+    confirmed_detections     — total - false_positives (non marquées FP)
+    false_positives          — marquées manuellement par l'agent
+    false_positive_rate      — % de FP (0-100, arrondi à 0.1)
+    avg_confidence           — confiance YOLO moyenne (% 0-100)
+    high_danger_detections   — détections HIGH uniquement (y.c. FP)
+    total_alerts             — alertes créées sur la période
+    resolved_alerts          — alertes avec resolved_at non null
+    unread_alerts            — alertes non lues ET non résolues
+    alert_resolution_rate    — % alertes résolues
+
+  by_hour  : [{hour: 0-23, count}]
+    Distribution horaire — toutes détections (base_qs)
+
+  by_day   : [{date, total, HIGH, MEDIUM, LOW}]
+    Tendance journalière sur la PÉRIODE COMPLÈTE — hors faux positifs
+    (confirmed_qs, cohérent avec top_labels)
+
+  camera_performance : [{name, total, high, avg_confidence, fp}]
+    Par caméra — toutes détections ; avg_confidence en % (converti backend)
+
+  top_labels : [{label, count}]
+    Top 6 classes — hors faux positifs uniquement
+
+Périodes disponibles : 7j, 30j, 90j (paramètre clampé entre 1 et 365)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. SYSTÈME D'ABONNEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Plan        │ Prix FCFA/mois │ Caméras │ Périmètres │ Analytics │ Email │ SMS
+  ────────────┼────────────────┼─────────┼────────────┼───────────┼───────┼─────
+  BASIC       │      5 000     │   Oui   │    Non     │    Non    │  Non  │ Non
+  PREMIUM     │     15 000     │   Oui   │    Oui     │    Oui    │  Oui  │ Non
+  ENTERPRISE  │     50 000     │   Oui   │    Oui     │    Oui    │  Oui  │ Oui
+
+  Méthodes de paiement : Orange Money, Wave, Virement bancaire, Espèces
+  Prolongation automatique lors du paiement (calcul par tranche mensuelle)
+  Vérification d'expiration : Celery Beat + expire_if_needed()
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. MOTEUR IA — CACHE YOLO ET OPTIMISATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+YOLOCache (backend/ai_engine/cache.py)
+──────────────────────────────────────
+  Problème : YOLOv8 lancé à chaque frame = CPU saturé (30fps par caméra)
+  Solution : cache des résultats sur frames similaires via Redis
+
+  Fonctionnement :
+    1. Echantillonnage spatial : 1/400ème des pixels de la frame
+    2. Hash = SHA-256(shape + MD5(échantillon)) → 16 caractères
+    3. Clé Redis : "yolo_detection:<hash>"
+    4. TTL configurable (YOLO_CACHE_TTL_SECONDS, défaut 30s)
+    5. Stockage JSON : {detections, cached_at, frame_shape}
+    6. Fail-safe : si Redis indisponible → inférence directe YOLO
+
+  Métriques Prometheus exposées :
+    frame_cache_hits_total   : frames traitées depuis le cache
+    frame_cache_misses_total : frames traitées par inférence réelle
+
+AlertCooldownManager (backend/ai_engine/alert_cooldown.py)
+────────────────────────────────────────────────────────────
+  Problème : sans anti-spam, 1 humain traversant le champ génère ~900 alertes
+  Solution : Redis SET NX avec TTL par couple (camera_id, label)
+
+  Redis SET NX = création uniquement si la clé est absente
+  TTL = ALERT_COOLDOWN_SECONDS (défaut 15 secondes)
+  Clé : "alert:<camera_id>:<label>"
+  Fail-open : si Redis down → toutes les alertes passent (choix délibéré)
+  API admin : reset_cooldown() disponible pour forçage lors de tests
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. VARIABLES D'ENVIRONNEMENT CLÉS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Variable                      Développement      Production
+  ─────────────────────────────────────────────────────────────────────────────
+  DJANGO_SETTINGS_MODULE        core.settings.dev  core.settings.prod
+  DJANGO_SECRET_KEY             quelconque         aléatoire + long + secret
+  DJANGO_DEBUG                  True               False
+  BYPASS_OTP                    true               false (jamais true en prod)
+  DATABASE_URL                  postgres://...     postgres://...
+  REDIS_PASSWORD                quelconque         fort
+  MINIO_ENDPOINT/ACCESS/SECRET  minio:9000/...     stockage objet externe
+  YOLO_CONFIDENCE_THRESHOLD     0.5                0.5–0.7 (selon faux positifs)
+  YOLO_CACHE_TTL_SECONDS        30                 30
+  ALERT_COOLDOWN_SECONDS        15                 15–60 (selon sensibilité)
+  DANGER_HIGH_CLASSES           person             person
+  DANGER_MEDIUM_CLASSES         cow,goat,horse,sheep
+  DANGER_LOW_CLASSES            bird,cat,dog
+  VIDEO_GID                     44 (Linux)         44
+  EMAIL_BACKEND                 console            SMTP réel
+  EMAIL_HOST/PORT/USER/PASSWORD non requis         SMTP configuré
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13. COMMANDES DE DÉMARRAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  make dev            → docker compose up --build (hot-reload backend + frontend)
+  make build          → docker compose build
+  make up             → docker compose up -d
+  make down           → docker compose down
+  make logs           → docker compose logs -f
+
+  make migrate        → makemigrations + migrate
+  make superuser      → créer un compte administrateur Django
+  make shell          → Django shell interactif
+
+  make test           → pytest backend/
+  make coverage       → rapport de couverture HTML
+
+  cd frontend
+  npm run dev         → Vite dev server (port 3000)
+  npm run build       → Build de production (dist/)
+  npm run lint        → ESLint
+
+  # Dans le conteneur backend :
+  docker-compose exec backend python manage.py <commande>
+  docker-compose exec backend celery -A core inspect active
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+14. POINTS FORTS DU PROJET
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Problématique réelle et ancrée localement
+     Solution concrète à un vrai besoin sénégalais, pas un projet générique.
+     FCFA, Orange Money, Wave, NIN, 14 régions du Sénégal.
+
+  2. Pipeline IA complet et optimisé
+     YOLOv8 → cache Redis (−70% CPU) → cooldown anti-spam → WebSocket.
+     Chaque module est indépendant et testable séparément.
+
+  3. Temps réel véritable
+     WebSocket bidirectionnel (Django Channels + Redis pub/sub).
+     Vidéo + alertes + notifications simultanés sans polling.
+
+  4. Sécurité multicouche
+     OTP email + TrustedDevice + JWT auto-refresh + throttling +
+     audit log complet + forçage changement MDP + BYPASS_OTP séparé de DEBUG.
+
+  5. Stack monitoring niveau production
+     Prometheus + Grafana + Loki + Alertmanager + 5 exporters.
+     Métriques métier personnalisées (cache hits, connexions WebSocket actives).
+
+  6. Architecture modulaire (Atomic Design + separation of concerns)
+     Frontend : atoms → molecules → organisms → templates → pages.
+     Backend  : un module par responsabilité (reader, filter, cache, detector,
+                saver, notifier, broadcaster).
+
+  7. Mode démonstration autonome
+     mockAdapter.js : frontend 100% fonctionnel sans backend actif.
+     Credentials démo : agent@agriwatch.sn/agent123, admin@agriwatch.sn/admin123.
+
+  8. Observabilité applicative
+     frame_cache_hits_total, frame_cache_misses_total, websocket_connections_active
+     exposés à Prometheus. Dashboard Grafana pré-configuré.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+15. LIMITES CONNUES ET AMÉLIORATIONS FUTURES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LIMITES ARCHITECTURALES (connues, évolutions v1/v2)
+─────────────────────────────────────────────────────
+  • Inférence YOLOv8 et API Django sur le même processus Daphne
+    Impact : au-delà de ~5 caméras simultanées en 30fps, le CPU peut saturer
+    Solution v1 : déplacer le pipeline IA dans un worker Celery dédié
+    Solution v2 : service GPU indépendant (NVIDIA Triton, torchserve)
+
+  • JWT stocké dans localStorage
+    Risque théorique XSS mitigé par la sanitisation des inputs
+    Solution v1 : httpOnly cookies + CSRF token (refonte complète de l'auth)
+
+  • Pas d'historique vidéo (captures JPEG uniquement)
+    Ajout en v1 : enregistrement HLS/MP4 sur MinIO, lecture différée
+
+LIMITES FONCTIONNELLES (fonctionnalités futures)
+─────────────────────────────────────────────────
+  • Pas de zones d'exclusion par caméra
+    (masque ROI sur la frame avant inférence YOLO)
+
+  • Pas de planification horaire de surveillance
+    (activer/désactiver automatiquement selon des plages horaires)
+
+  • Pas de mode hors-ligne ou dégradé
+    (pertinent pour les zones rurales à connectivité intermittente)
+    Solution envisageable : PWA + IndexedDB + sync différée
+
+  • Pas de comparaison inter-périodes dans les analytics
+    (ex : "ce mois vs mois précédent")
+
+  • Abonnement BASIC sans alertes SMS
+    Dans le contexte sénégalais rural, un SMS est souvent plus fiable qu'un email.
+    À reconsidérer pour le plan d'entrée de gamme.
+
+  • Multi-tenant non implémenté
+    Un seul compte maintenancier gère tous les agents.
+    Pour déploiement multi-coopératives : isoler les données par organisation.
+
+================================================================================
+   FIN DU RÉSUMÉ — AgriWatch v0 | Soutenance Mai 2026
+   Auteur : Mouhamed Alamine Berre
+================================================================================

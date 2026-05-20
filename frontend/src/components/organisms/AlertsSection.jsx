@@ -4,7 +4,7 @@ import { LoadingSpinner } from '../atoms/LoadingSpinner'
 import { AlertItem } from '../molecules/AlertItem'
 import { AlertTriangle, Shield } from 'lucide-react'
 
-export const AlertsSection = ({ alerts, isLoading, unreadCount, formatDate }) => {
+export const AlertsSection = ({ alerts, isLoading, unreadCount, formatDate, onResolve }) => {
   return (
     <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
       <SectionHeader title="Alertes" icon={AlertTriangle} count={unreadCount} />
@@ -20,7 +20,12 @@ export const AlertsSection = ({ alerts, isLoading, unreadCount, formatDate }) =>
           />
         ) : (
           alerts.map((alert) => (
-            <AlertItem key={alert.id} alert={alert} formatDate={formatDate} />
+            <AlertItem
+              key={alert.id}
+              alert={alert}
+              formatDate={formatDate}
+              onResolve={onResolve}
+            />
           ))
         )}
       </div>

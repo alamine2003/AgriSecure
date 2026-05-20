@@ -191,87 +191,115 @@ class DashboardViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'])
     def analytics(self, request):
-        """Analytics avancés (Premium uniquement)"""
-        if request.user.role != 'agent_agricole':
+        """Analytics de surveillance — agent agricole ou maintenancier avec ?agent_id="""
+        if request.user.role == 'maintenancier':
+            agent_id = request.query_params.get('agent_id')
+            if not agent_id:
+                return Response(
+                    {'error': 'Paramètre agent_id requis pour le maintenancier'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            agent = get_object_or_404(CustomUser, id=agent_id, role='agent_agricole')
+        elif request.user.role == 'agent_agricole':
+            agent = request.user
+        else:
             return Response(
-                {'error': 'Accès réservé aux agents agricoles'}, 
+                {'error': 'Accès non autorisé'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        # Vérifier l'abonnement Premium
-        subscription = getattr(request.user, 'subscription', None)
-        if not subscription or not subscription.is_active() or not subscription.has_feature('advanced_analytics'):
-            return Response(
-                {'error': 'Fonctionnalité Premium requise'}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        agent = request.user
-        
-        # Période d'analyse — clampée à [1, 365] pour éviter les requêtes géantes
+
         try:
             days = max(1, min(int(request.query_params.get('days', 30)), 365))
         except (ValueError, TypeError):
             days = 30
         start_date = timezone.now() - timedelta(days=days)
-        
-        # Détections par jour
-        detections_by_day = Detection.objects.filter(
-            agent=agent,
-            detected_at__gte=start_date
-        ).annotate(
-            day=TruncDate('detected_at')
-        ).values('day').annotate(
-            count=Count('id'),
-            high_danger_count=Count('id', filter=Q(danger_level='HIGH'))
-        ).order_by('day')
-        
-        # Détections par heure (pour les patterns)
-        detections_by_hour = Detection.objects.filter(
-            agent=agent,
-            detected_at__gte=start_date
-        ).annotate(
-            hour=ExtractHour('detected_at')
-        ).values('hour').annotate(
-            count=Count('id')
-        ).order_by('hour')
-        
+
+        base_qs = Detection.objects.filter(agent=agent, detected_at__gte=start_date)
+        confirmed_qs = base_qs.filter(is_false_positive=False)
+        total_detections = base_qs.count()
+        fp_count = base_qs.filter(is_false_positive=True).count()
+        confirmed_count = total_detections - fp_count
+        high_danger_count = base_qs.filter(danger_level='HIGH').count()
+
+        # Détections par heure — distribution complète 0-23
+        by_hour_raw = {
+            row['hour']: row['count']
+            for row in base_qs.annotate(hour=ExtractHour('detected_at'))
+            .values('hour').annotate(count=Count('id'))
+        }
+        by_hour = [{'hour': h, 'count': by_hour_raw.get(h, 0)} for h in range(24)]
+
+        # Tendance sur la période sélectionnée — hors faux positifs (cohérent avec top_labels)
+        by_day = list(
+            confirmed_qs
+            .annotate(date=TruncDate('detected_at'))
+            .values('date')
+            .annotate(
+                total=Count('id'),
+                HIGH=Count('id', filter=Q(danger_level='HIGH')),
+                MEDIUM=Count('id', filter=Q(danger_level='MEDIUM')),
+                LOW=Count('id', filter=Q(danger_level='LOW')),
+            )
+            .order_by('date')
+        )
+
         # Performance par caméra
-        camera_stats = Detection.objects.filter(
-            agent=agent,
-            detected_at__gte=start_date
-        ).values('camera__name').annotate(
-            total_detections=Count('id'),
-            high_danger_detections=Count('id', filter=Q(danger_level='HIGH')),
-            avg_confidence=Avg('confidence')
-        ).order_by('-total_detections')
-        
-        # Taux de fausses alertes (basé sur la confiance)
-        low_confidence_count = Detection.objects.filter(
-            agent=agent,
-            detected_at__gte=start_date,
-            confidence__lt=0.5
+        camera_stats = list(
+            base_qs.values('camera__name').annotate(
+                total=Count('id'),
+                high=Count('id', filter=Q(danger_level='HIGH')),
+                avg_confidence=Avg('confidence'),
+                fp=Count('id', filter=Q(is_false_positive=True)),
+            ).order_by('-total')
+        )
+        camera_performance = [
+            {
+                'name': c['camera__name'],
+                'total': c['total'],
+                'high': c['high'],
+                'avg_confidence': round((c['avg_confidence'] or 0) * 100, 1),
+                'fp': c['fp'],
+            }
+            for c in camera_stats
+        ]
+
+        # Top labels détectés
+        top_labels = list(
+            base_qs.filter(is_false_positive=False)
+            .values('label')
+            .annotate(count=Count('id'))
+            .order_by('-count')[:6]
+        )
+
+        # Taux de résolution des alertes
+        total_alerts = Alert.objects.filter(detection__agent=agent, created_at__gte=start_date).count()
+        resolved_alerts = Alert.objects.filter(
+            detection__agent=agent, created_at__gte=start_date, resolved_at__isnull=False
         ).count()
-        
-        total_detections = Detection.objects.filter(
-            agent=agent,
-            detected_at__gte=start_date
+
+        avg_confidence = base_qs.aggregate(avg=Avg('confidence'))['avg'] or 0
+
+        unread_alerts_count = Alert.objects.filter(
+            detection__agent=agent, created_at__gte=start_date, is_read=False
         ).count()
-        
-        false_positive_rate = (low_confidence_count / total_detections * 100) if total_detections > 0 else 0
-        
+
         return Response({
             'period_days': days,
-            'detections_by_day': list(detections_by_day),
-            'detections_by_hour': list(detections_by_hour),
-            'camera_performance': list(camera_stats),
+            'by_hour': by_hour,
+            'by_day': by_day,
+            'camera_performance': camera_performance,
+            'top_labels': top_labels,
             'quality_metrics': {
                 'total_detections': total_detections,
-                'false_positive_rate': round(false_positive_rate, 2),
-                'avg_confidence': Detection.objects.filter(
-                    agent=agent,
-                    detected_at__gte=start_date
-                ).aggregate(avg=Avg('confidence'))['avg'] or 0
+                'confirmed_detections': confirmed_count,
+                'false_positives': fp_count,
+                'false_positive_rate': round(fp_count / total_detections * 100, 1) if total_detections else 0,
+                'avg_confidence': round(avg_confidence * 100, 1),
+                'total_alerts': total_alerts,
+                'resolved_alerts': resolved_alerts,
+                'unread_alerts': unread_alerts_count,
+                'high_danger_detections': high_danger_count,
+                'alert_resolution_rate': round(resolved_alerts / total_alerts * 100, 1) if total_alerts else 0,
             }
         })
 

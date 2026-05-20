@@ -48,6 +48,17 @@ class LoginStep1View(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Bypass OTP : activé via BYPASS_OTP=true (indépendant de DEBUG)
+        if getattr(settings, 'BYPASS_OTP', False):
+            refresh = RefreshToken.for_user(user)
+            logger.info("Connexion directe (BYPASS_OTP) pour %s", user.email)
+            return Response({
+                'otp_required': False,
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': UserSerializer(user).data,
+            })
+
         # Appareil de confiance → on saute l'OTP
         if device_token:
             try:
@@ -65,7 +76,24 @@ class LoginStep1View(APIView):
             except TrustedDevice.DoesNotExist:
                 pass
 
-        otp = OTPCode.generate_for(user)
+        try:
+            otp = OTPCode.generate_for(user)
+        except Exception as e:
+            logger.exception("Échec génération OTP pour %s : %s", user.email, e)
+            return Response(
+                {'detail': 'Erreur serveur lors de la génération du code OTP.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        payload = {
+            'otp_required': True,
+            'session_token': str(otp.session_token),
+        }
+
+        # Mode développement : code OTP visible dans la réponse et les logs
+        if getattr(settings, 'BYPASS_OTP', False) or settings.DEBUG:
+            payload['dev_otp_code'] = otp.code
+            logger.info("OTP dev pour %s : %s", user.email, otp.code)
 
         try:
             send_mail(
@@ -82,12 +110,17 @@ class LoginStep1View(APIView):
             )
         except Exception as e:
             logger.error("Échec envoi OTP pour %s : %s", user.email, e)
+            if settings.DEBUG:
+                payload['email_sent'] = False
+                return Response(payload, status=status.HTTP_200_OK)
             return Response(
                 {'detail': "Impossible d'envoyer le code par email. Réessayez."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        return Response({'otp_required': True, 'session_token': str(otp.session_token)})
+        if settings.DEBUG:
+            payload['email_sent'] = True
+        return Response(payload)
 
 
 class VerifyOTPView(APIView):

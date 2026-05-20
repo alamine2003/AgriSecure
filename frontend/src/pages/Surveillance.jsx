@@ -11,7 +11,7 @@ const Surveillance = () => {
         queryKey: ["cameras"],
         queryFn: async () => {
             const res = await client.get("/surveillance/cameras/")
-            return res.data
+            return Array.isArray(res.data) ? res.data : res.data?.results || []
         },
     })
 
@@ -53,7 +53,9 @@ const Surveillance = () => {
                 <Card>
                     <CardHeader>
                         <CardTitle>Caméras</CardTitle>
-                        <CardDescription>Aucune caméra disponible.</CardDescription>
+                        <CardDescription>
+                            Aucune caméra disponible. Votre installation doit être finalisée par le maintenancier pour activer vos caméras.
+                        </CardDescription>
                     </CardHeader>
                 </Card>
             )}

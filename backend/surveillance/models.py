@@ -49,6 +49,7 @@ class Detection(models.Model):
     frame_capture = models.URLField(max_length=500, null=True, blank=True)
     detected_at = models.DateTimeField(auto_now_add=True)
     is_alert = models.BooleanField(default=False)
+    is_false_positive = models.BooleanField(default=False, help_text="Marqué comme faux positif par l'agent")
 
     class Meta:
         ordering = ['-detected_at']

@@ -4,7 +4,7 @@ import { LoadingSpinner } from '../atoms/LoadingSpinner'
 import { DetectionItem } from '../molecules/DetectionItem'
 import { Activity, Eye } from 'lucide-react'
 
-export const DetectionsSection = ({ detections, isLoading, formatDate }) => {
+export const DetectionsSection = ({ detections, isLoading, formatDate, onFalsePositive }) => {
   return (
     <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
       <SectionHeader title="Détections" icon={Activity} count={detections.length} />
@@ -20,7 +20,12 @@ export const DetectionsSection = ({ detections, isLoading, formatDate }) => {
           />
         ) : (
           detections.map((detection) => (
-            <DetectionItem key={detection.id} detection={detection} formatDate={formatDate} />
+            <DetectionItem
+              key={detection.id}
+              detection={detection}
+              formatDate={formatDate}
+              onFalsePositive={onFalsePositive}
+            />
           ))
         )}
       </div>

@@ -73,6 +73,37 @@ class DetectionViewSet(viewsets.ReadOnlyModelViewSet):
             return Detection.objects.all()
         return Detection.objects.filter(agent=self.request.user)
 
+    @action(detail=True, methods=['patch'])
+    def mark_false_positive(self, request, pk=None):
+        detection = self.get_object()
+        is_fp = request.data.get('is_false_positive', True)
+        detection.is_false_positive = bool(is_fp)
+        detection.save(update_fields=['is_false_positive'])
+        return Response({'status': 'ok', 'is_false_positive': detection.is_false_positive})
+
+    @action(detail=False, methods=['get'])
+    def export_csv(self, request):
+        import csv
+        from django.http import HttpResponse
+        qs = self.get_queryset().select_related('camera')
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="detections.csv"'
+        response.write('﻿')  # BOM UTF-8 pour Excel
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Caméra', 'Label', 'Confiance', 'Niveau danger', 'Alerte', 'Faux positif', 'Date détection'])
+        for d in qs:
+            writer.writerow([
+                str(d.id),
+                d.camera.name,
+                d.label,
+                f"{d.confidence:.2f}",
+                d.get_danger_level_display(),
+                'Oui' if d.is_alert else 'Non',
+                'Oui' if d.is_false_positive else 'Non',
+                d.detected_at.strftime('%d/%m/%Y %H:%M:%S'),
+            ])
+        return response
+
     @action(detail=True, methods=['get'])
     def capture(self, request, pk=None):
         detection = self.get_object()
@@ -120,8 +151,16 @@ class AlertViewSet(viewsets.ModelViewSet):
     def read(self, request, pk=None):
         alert = self.get_object()
         alert.is_read = True
-        alert.save()
+        alert.save(update_fields=['is_read'])
         return Response({'status': 'Alerte marquée comme lue'})
+
+    @action(detail=True, methods=['patch'])
+    def resolve(self, request, pk=None):
+        alert = self.get_object()
+        alert.resolved_at = timezone.now()
+        alert.is_read = True
+        alert.save(update_fields=['resolved_at', 'is_read'])
+        return Response({'status': 'Alerte résolue', 'resolved_at': alert.resolved_at})
 
 
 class InstallationAppointmentViewSet(viewsets.ModelViewSet):

@@ -6,31 +6,26 @@ import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Map } from "lucide-react"
 import { FieldMapDrawer } from "../components/ui/field-map-drawer"
 import { DashboardMap } from "../components/ui/dashboard-map"
 
-// Import des composants modulaires
 import { DashboardLayout } from "../components/templates/DashboardLayout"
 import { StatsGrid } from "../components/organisms/StatsGrid"
 import { PerimetersSection } from "../components/organisms/PerimetersSection"
 import { CamerasSection } from "../components/organisms/CamerasSection"
 import { AlertsSection } from "../components/organisms/AlertsSection"
 import { DetectionsSection } from "../components/organisms/DetectionsSection"
+import { AnalyticsSection } from "../components/organisms/AnalyticsSection"
 
-/**
- * Page Agent Dashboard - Version Modulaire
- * Architecture: Atomic Design (Atoms → Molecules → Organisms → Templates → Pages)
- */
 export default function AgentDashboardModular() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // États locaux
   const [perimeterDialogOpen, setPerimeterDialogOpen] = useState(false)
   const [editingPerimeter, setEditingPerimeter] = useState(null)
   const [newPerimeter, setNewPerimeter] = useState({ name: "", description: "" })
+  const [analyticsDays, setAnalyticsDays] = useState(30)
 
   // ========== QUERIES ==========
   const camerasQuery = useQuery({
@@ -71,6 +66,16 @@ export default function AgentDashboardModular() {
     refetchInterval: 5000,
   })
 
+  const analyticsQuery = useQuery({
+    queryKey: ["agent-analytics", analyticsDays],
+    queryFn: async () => {
+      const res = await client.get(`/surveillance/dashboard/analytics/?days=${analyticsDays}`)
+      return res.data
+    },
+    refetchInterval: 60000,
+    staleTime: 30000,
+  })
+
   // ========== MUTATIONS ==========
   const createPerimeterMutation = useMutation({
     mutationFn: async (data) => {
@@ -102,22 +107,42 @@ export default function AgentDashboardModular() {
       setPerimeterDialogOpen(false)
       setEditingPerimeter(null)
     },
-    onError: () => {
-      toast.error("Erreur lors de la modification")
-    }
+    onError: () => toast.error("Erreur lors de la modification"),
   })
 
   const deletePerimeterMutation = useMutation({
-    mutationFn: async (id) => {
-      await client.delete(`/surveillance/perimeters/${id}/`)
-    },
+    mutationFn: async (id) => { await client.delete(`/surveillance/perimeters/${id}/`) },
     onSuccess: () => {
       queryClient.invalidateQueries(["agent-perimeters"])
       toast.success("Périmètre supprimé")
     },
-    onError: () => {
-      toast.error("Erreur lors de la suppression")
-    }
+    onError: () => toast.error("Erreur lors de la suppression"),
+  })
+
+  const falsePositiveMutation = useMutation({
+    mutationFn: async ({ id, value }) => {
+      const res = await client.patch(`/surveillance/detections/${id}/mark_false_positive/`, { is_false_positive: value })
+      return res.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(["agent-detections"])
+      queryClient.invalidateQueries(["agent-analytics"])
+      toast.success(data.is_false_positive ? "Marqué comme faux positif" : "Faux positif annulé")
+    },
+    onError: () => toast.error("Impossible de mettre à jour"),
+  })
+
+  const resolveAlertMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await client.patch(`/surveillance/alerts/${id}/resolve/`)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["agent-alerts"])
+      queryClient.invalidateQueries(["agent-analytics"])
+      toast.success("Alerte résolue")
+    },
+    onError: () => toast.error("Impossible de résoudre l'alerte"),
   })
 
   // ========== DONNÉES ==========
@@ -126,24 +151,23 @@ export default function AgentDashboardModular() {
   const detections = detectionsQuery.data || []
   const alerts = alertsQuery.data || []
 
-  // ========== STATS CALCULÉES ==========
+  // Utilise les données analytics (période sélectionnée) pour des comptages précis
+  const analyticsQm = analyticsQuery.data?.quality_metrics
+
   const stats = {
     activeCameras: cameras.filter(c => c.is_active).length,
     totalCameras: cameras.length,
     totalArea: perimeters.reduce((acc, p) => acc + parseFloat(p.area_hectares || 0), 0),
     perimeterCount: perimeters.length,
-    unreadAlerts: alerts.filter(a => !a.is_read).length,
-    totalAlerts: alerts.length,
-    highDangerDetections: detections.filter(d => d.danger_level === 'HIGH').length,
-    totalDetections: detections.length,
+    unreadAlerts: analyticsQm?.unread_alerts ?? alerts.filter(a => !a.is_read).length,
+    totalAlerts: analyticsQm?.total_alerts ?? alerts.length,
+    highDangerDetections: analyticsQm?.high_danger_detections ?? detections.filter(d => d.danger_level === 'HIGH').length,
+    totalDetections: analyticsQm?.total_detections ?? detections.length,
   }
 
   // ========== HANDLERS ==========
   const handleSavePerimeter = (mapData) => {
-    if (!newPerimeter.name?.trim()) {
-      toast.error("Le nom du périmètre est requis")
-      return
-    }
+    if (!newPerimeter.name?.trim()) { toast.error("Le nom du périmètre est requis"); return }
     const toFixed7 = (v) => (v != null ? parseFloat(v.toFixed(7)) : null)
     const payload = {
       name: newPerimeter.name.trim(),
@@ -152,7 +176,6 @@ export default function AgentDashboardModular() {
       center_lat: toFixed7(mapData.center?.lat),
       center_lng: toFixed7(mapData.center?.lng),
     }
-
     if (editingPerimeter) {
       updatePerimeterMutation.mutate({ id: editingPerimeter.id, data: payload })
     } else {
@@ -167,9 +190,7 @@ export default function AgentDashboardModular() {
   }
 
   const handleDeletePerimeter = (id) => {
-    if (window.confirm("Supprimer ce périmètre ?")) {
-      deletePerimeterMutation.mutate(id)
-    }
+    if (window.confirm("Supprimer ce périmètre ?")) deletePerimeterMutation.mutate(id)
   }
 
   const handleNewPerimeter = () => {
@@ -178,15 +199,27 @@ export default function AgentDashboardModular() {
     setPerimeterDialogOpen(true)
   }
 
-  const handleViewCamera = (cameraId) => {
-    navigate(`/surveillance?camera=${cameraId}`)
+  const handleViewCamera = (cameraId) => navigate(`/surveillance?camera=${cameraId}`)
+  const handleSurveillance = () => navigate("/surveillance")
+
+  const handleFalsePositive = (id, value) => falsePositiveMutation.mutate({ id, value })
+  const handleResolveAlert = (id) => resolveAlertMutation.mutate(id)
+
+  const handleExportCSV = async () => {
+    try {
+      const res = await client.get("/surveillance/detections/export_csv/", { responseType: "blob" })
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv;charset=utf-8;" }))
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `detections_${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      toast.success("Export CSV téléchargé")
+    } catch {
+      toast.error("Erreur lors de l'export")
+    }
   }
 
-  const handleSurveillance = () => {
-    navigate("/surveillance")
-  }
-
-  // ========== UTILITAIRES ==========
   const formatDate = (dateString) => {
     if (!dateString) return "N/A"
     const date = new Date(dateString)
@@ -194,7 +227,6 @@ export default function AgentDashboardModular() {
     const diff = now - date
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(diff / 3600000)
-
     if (minutes < 1) return "À l'instant"
     if (minutes < 60) return `${minutes}min`
     if (hours < 24) return `${hours}h`
@@ -208,12 +240,10 @@ export default function AgentDashboardModular() {
         onNewPerimeter={handleNewPerimeter}
         onSurveillance={handleSurveillance}
       >
-        {/* Stats Row */}
         <div className="mb-6">
           <StatsGrid stats={stats} />
         </div>
 
-        {/* Main Grid - 2 Rows */}
         <div className="space-y-4">
           {/* Row 1: Périmètres + Alertes */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -226,13 +256,13 @@ export default function AgentDashboardModular() {
                 onNew={handleNewPerimeter}
               />
             </div>
-
             <div className="lg:col-span-1">
               <AlertsSection
                 alerts={alerts}
                 isLoading={alertsQuery.isLoading}
                 unreadCount={stats.unreadAlerts}
                 formatDate={formatDate}
+                onResolve={handleResolveAlert}
               />
             </div>
           </div>
@@ -247,17 +277,26 @@ export default function AgentDashboardModular() {
                 onView={handleViewCamera}
               />
             </div>
-
             <div className="lg:col-span-1">
               <DetectionsSection
                 detections={detections}
                 isLoading={detectionsQuery.isLoading}
                 formatDate={formatDate}
+                onFalsePositive={handleFalsePositive}
               />
             </div>
           </div>
 
-          {/* Row 3: Carte des périmètres */}
+          {/* Row 3: Analytics */}
+          <AnalyticsSection
+            analytics={analyticsQuery.data}
+            isLoading={analyticsQuery.isLoading}
+            days={analyticsDays}
+            onDaysChange={setAnalyticsDays}
+            onExportCSV={handleExportCSV}
+          />
+
+          {/* Row 4: Carte */}
           <DashboardMap
             perimeters={perimeters}
             cameras={cameras}
@@ -268,7 +307,6 @@ export default function AgentDashboardModular() {
         </div>
       </DashboardLayout>
 
-      {/* Dialog Périmètre */}
       <Dialog open={perimeterDialogOpen} onOpenChange={setPerimeterDialogOpen}>
         <DialogContent className="max-w-6xl h-[90vh] p-0 overflow-hidden bg-card border-border/50">
           <DialogHeader className="px-6 py-4 border-b border-border/50 bg-card">
@@ -279,7 +317,6 @@ export default function AgentDashboardModular() {
           </DialogHeader>
 
           <div className="flex flex-col h-[calc(90vh-5rem)] overflow-hidden">
-            {/* Formulaire compact horizontal */}
             <div className="shrink-0 border-b border-border/50 bg-muted/20 px-4 py-3 flex flex-wrap items-end gap-4">
               <div className="flex-1 min-w-[180px]">
                 <Label htmlFor="name" className="text-foreground text-xs font-semibold">Nom du Périmètre *</Label>
@@ -303,7 +340,6 @@ export default function AgentDashboardModular() {
               </div>
             </div>
 
-            {/* Carte - prend tout l'espace restant */}
             <div className="flex-1 min-h-0 p-3">
               <FieldMapDrawer
                 onSave={handleSavePerimeter}

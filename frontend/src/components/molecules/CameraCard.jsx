@@ -1,17 +1,17 @@
 import { Wifi, WifiOff, MapPin, Eye } from 'lucide-react'
 
 export const CameraCard = ({ camera, onView }) => {
-  const isOnline = camera.status === 'online' || camera.is_active
+  const isActive = camera.is_active
 
   return (
     <div className="group rounded-2xl border border-border/50 p-4 hover:border-primary/30 transition-all duration-300 bg-card">
       <div className="flex items-start gap-3 mb-3">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${
-          isOnline
+          isActive
             ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20'
             : 'bg-muted'
         }`}>
-          {isOnline ? (
+          {isActive ? (
             <Wifi className="w-5 h-5 text-white" />
           ) : (
             <WifiOff className="w-5 h-5 text-muted-foreground" />
@@ -23,9 +23,12 @@ export const CameraCard = ({ camera, onView }) => {
             {camera.name}
           </h4>
           <div className="flex items-center gap-1.5 mt-1">
-            <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-amber-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
-            <span className={`text-xs font-medium ${isOnline ? 'text-amber-500' : 'text-muted-foreground'}`}>
-              {isOnline ? 'En ligne' : 'Hors ligne'}
+            <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-amber-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
+            <span
+              className={`text-xs font-medium ${isActive ? 'text-amber-500' : 'text-muted-foreground'}`}
+              title={isActive ? 'Caméra configurée comme active' : 'Caméra désactivée par l\'administrateur'}
+            >
+              {isActive ? 'Active' : 'Inactive'}
             </span>
           </div>
         </div>

@@ -17,6 +17,15 @@ DATABASES = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Bypass OTP : désactivable indépendamment de DEBUG (ex: tester le flow OTP en dev)
+BYPASS_OTP = os.getenv('BYPASS_OTP', 'true').lower() == 'true'
+
+# OTP par console en dev (évite les 503 si SMTP non configuré)
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+
 # En dev/test : throttle présent mais taux très élevés pour ne pas bloquer
 REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = []
 REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {

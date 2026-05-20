@@ -3,6 +3,9 @@ import os
 
 DEBUG = os.getenv('DJANGO_DEBUG', '').lower() in ('true', '1', 'yes')
 
+# En production, le bypass OTP est toujours désactivé sauf surcharge explicite
+BYPASS_OTP = os.getenv('BYPASS_OTP', 'false').lower() == 'true'
+
 _allowed_hosts_str = os.getenv('DJANGO_ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_str.split(',') if h.strip()] or ['localhost']
 
