@@ -12,18 +12,6 @@ export default function Dashboard({ role }) {
   const location = useLocation();
   const actualRole = user.role;
 
-  if (role === "maintenancier" && actualRole && actualRole !== "maintenancier") {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  if (!role && actualRole === "maintenancier" && location.pathname === "/dashboard") {
-    return <Navigate to="/maintenancier/dashboard" replace />;
-  }
-
-  if (!role && actualRole === "agent_agricole" && location.pathname === "/dashboard") {
-    return <Navigate to="/agent/dashboard" replace />;
-  }
-
   const camerasQuery = useQuery({
     queryKey: ["cameras"],
     queryFn: async () => {
@@ -43,6 +31,16 @@ export default function Dashboard({ role }) {
   const cameras = camerasQuery.data || [];
   const detections = detectionsQuery.data || [];
   const isMaintenancier = role === "maintenancier" || actualRole === "maintenancier";
+
+  if (role === "maintenancier" && actualRole && actualRole !== "maintenancier") {
+    return <Navigate to="/dashboard" replace />;
+  }
+  if (!role && actualRole === "maintenancier" && location.pathname === "/dashboard") {
+    return <Navigate to="/maintenancier/dashboard" replace />;
+  }
+  if (!role && actualRole === "agent_agricole" && location.pathname === "/dashboard") {
+    return <Navigate to="/agent/dashboard" replace />;
+  }
 
   const highCount = detections.filter(d => d.danger_level === 'HIGH').length;
   const todayCount = detections.filter(d => {
